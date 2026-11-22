@@ -3,38 +3,52 @@ import streamlit as st
 # Configuración de página
 st.set_page_config(page_title="AquiApp Integral", layout="wide")
 
-# Estilos personalizados (Diseño Azul)
+# Estilos personalizados con paleta armoniosa
 st.markdown("""
     <style>
-    .main {
-        background-color: #f0f4f8;
+    /* Fondo general de la aplicación */
+    div.stApp {
+        background-color: #f4f7f6;
     }
-    .stApp {
-        background-color: #f0f4f8;
+    
+    /* Títulos principales */
+    .title-text {
+        color: #0A2540;
+        text-align: center;
+        font-weight: 800;
+        padding-bottom: 5px;
     }
+    
+    /* Subtítulos */
+    .sub-text {
+        color: #20639B;
+        text-align: center;
+        padding-bottom: 20px;
+    }
+
+    /* Estilo de los botones de navegación principales */
     div.stButton > button {
         width: 100%;
-        border-radius: 10px;
-        height: 5em;
-        background-color: #004080;
+        border-radius: 12px;
+        height: 5.5em;
+        background-color: #20639B;
         color: white;
         font-weight: bold;
         font-size: 18px;
-        border: 2px solid #00264d;
-        box-shadow: 3px 3px 10px rgba(0,0,0,0.2);
+        border: none;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: background-color 0.3s ease;
     }
+    
     div.stButton > button:hover {
-        background-color: #0059b3;
-        border-color: #004080;
+        background-color: #173F5F;
+        color: #FFFFFF;
     }
-    .title-text {
-        color: #00264d;
-        text-align: center;
-        font-weight: 800;
-    }
-    .sub-text {
-        color: #4da6ff;
-        text-align: center;
+    
+    /* Estilo para botones de acción secundaria o volver */
+    div.stDownloadButton > button, div.stFormSubmitButton > button {
+        background-color: #ED553B;
+        color: white;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -54,7 +68,6 @@ if st.session_state['pagina'] == 'Inicio':
     st.subheader("Panel de Control Principal")
     st.write("Selecciona uno de los siguientes módulos para acceder a las herramientas de trabajo:")
     
-    # Espaciado
     st.write("###")
     
     col1, col2, col3 = st.columns(3)
