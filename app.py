@@ -1,6 +1,6 @@
-import datetime
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import datetime
 
 # 1. Configuración de página
 st.set_page_config(
@@ -195,6 +195,31 @@ if "bitacora_campo" not in st.session_state:
 if "ultimo_calculo_neubauer" not in st.session_state:
     st.session_state["ultimo_calculo_neubauer"] = None
 
+# Claves para el formulario de Neubauer para permitir reseteo
+neubauer_keys = [
+    "neubauer_dilucion", "neubauer_volumen", "neubauer_unidad",
+    "neubauer_c1", "neubauer_c2", "neubauer_c3", "neubauer_c4", "neubauer_c5",
+    "neubauer_vivas", "neubauer_muertas"
+]
+
+def reset_neubauer_inputs():
+    st.session_state["neubauer_dilucion"] = 1.0
+    st.session_state["neubauer_volumen"] = 0.0
+    st.session_state["neubauer_c1"] = 0
+    st.session_state["neubauer_c2"] = 0
+    st.session_state["neubauer_c3"] = 0
+    st.session_state["neubauer_c4"] = 0
+    st.session_state["neubauer_c5"] = 0
+    st.session_state["neubauer_vivas"] = 0
+    st.session_state["neubauer_muertas"] = 0
+
+# Inicializar valores de Neubauer si no existen
+for key in neubauer_keys:
+    if key not in st.session_state:
+        if "dilucion" in key:
+            st.session_state[key] = 1.0
+        else:
+            st.session_state[key] = 0
 
 def render_neubauer_svg(c1: int, c2: int, c3: int, c4: int, c5: int) -> str:
     max_val = max(c1, c2, c3, c4, c5, 1)
@@ -269,7 +294,6 @@ def render_neubauer_svg(c1: int, c2: int, c3: int, c4: int, c5: int) -> str:
     """
     return svg
 
-
 def build_printable_html(df: pd.DataFrame) -> str:
     rows_html = ""
     for _, row in df.iterrows():
@@ -312,7 +336,6 @@ def build_printable_html(df: pd.DataFrame) -> str:
 </body>
 </html>"""
 
-
 # 4. Barra lateral persistente
 with st.sidebar:
     st.markdown(
@@ -351,7 +374,6 @@ with st.sidebar:
         f"<span style='font-family:JetBrains Mono,monospace; color:#eef0f5;'>{len(st.session_state['bitacora_campo'])}</span></div>",
         unsafe_allow_html=True,
     )
-
 
 # ----------------------------------------------------------------------
 # PÁGINA 1: PANEL DE CONTROL GENERAL
@@ -458,7 +480,6 @@ if st.session_state["pagina"] == "Inicio":
             st.session_state["pagina"] = "Patologia"
             st.rerun()
 
-
 # ----------------------------------------------------------------------
 # PÁGINA 2: CÁMARA DE NEUBAUER
 # ----------------------------------------------------------------------
@@ -481,45 +502,58 @@ elif st.session_state["pagina"] == "Neubauer":
             p1, p2, p3 = st.columns(3)
             with p1:
                 factor_dilucion = st.number_input(
-                    "Factor de dilución", min_value=0.0, value=0.0, step=0.5, format="%.4f"
+                    "Factor de dilución", min_value=0.0, value=st.session_state.get("neubauer_dilucion", 1.0), step=0.5, format="%.4f", key="neubauer_dilucion"
                 )
             with p2:
                 volumen_objetivo = st.number_input(
-                    "Volumen objetivo", min_value=0.0, value=0.0, step=1.0, format="%.1f"
+                    "Volumen objetivo", min_value=0.0, value=st.session_state.get("neubauer_volumen", 0.0), step=1.0, format="%.1f", key="neubauer_volumen"
                 )
             with p3:
                 unidad_vol = st.selectbox(
-                    "Unidad de volumen", ["Mililitros (mL)", "Litros (L)", "Toneladas (Ton)"]
+                    "Unidad de volumen", ["Mililitros (mL)", "Litros (L)", "Toneladas (Ton)"], key="neubauer_unidad"
                 )
 
             st.markdown("---")
             st.markdown("**Cuadrantes de las esquinas (16 subcuadros cada uno)**")
             e1, e2 = st.columns(2)
             with e1:
-                c1 = st.number_input("Cuadrante 1 (Superior izquierdo)", min_value=0, value=0, step=1)
-                c3 = st.number_input("Cuadrante 3 (Inferior izquierdo)", min_value=0, value=0, step=1)
+                c1 = st.number_input("Cuadrante 1 (Superior izquierdo)", min_value=0, value=st.session_state.get("neubauer_c1", 0), step=1, key="neubauer_c1")
+                c3 = st.number_input("Cuadrante 3 (Inferior izquierdo)", min_value=0, value=st.session_state.get("neubauer_c3", 0), step=1, key="neubauer_c3")
             with e2:
-                c2 = st.number_input("Cuadrante 2 (Superior derecho)", min_value=0, value=0, step=1)
-                c4 = st.number_input("Cuadrante 4 (Inferior derecho)", min_value=0, value=0, step=1)
+                c2 = st.number_input("Cuadrante 2 (Superior derecho)", min_value=0, value=st.session_state.get("neubauer_c2", 0), step=1, key="neubauer_c2")
+                c4 = st.number_input("Cuadrante 4 (Inferior derecho)", min_value=0, value=st.session_state.get("neubauer_c4", 0), step=1, key="neubauer_c4")
 
             st.markdown("---")
             st.markdown("**Cuadrante central (Cuadrante 5 · 25 subcuadros)**")
             st.caption("Apartado independiente para el cuadrante central de 25 cuadros.")
-            c5 = st.number_input("Cuadrante 5 (Central · 25 cuadros)", min_value=0, value=0, step=1)
+            c5 = st.number_input("Cuadrante 5 (Central · 25 cuadros)", min_value=0, value=st.session_state.get("neubauer_c5", 0), step=1, key="neubauer_c5")
 
             st.markdown("---")
             st.markdown("**Viabilidad celular diferencial (opcional)**")
             v1, v2 = st.columns(2)
             with v1:
-                vivas = st.number_input("Células vivas", min_value=0, value=0, step=1)
+                vivas = st.number_input("Células vivas", min_value=0, value=st.session_state.get("neubauer_vivas", 0), step=1, key="neubauer_vivas")
             with v2:
-                muertas = st.number_input("Células muertas", min_value=0, value=0, step=1)
+                muertas = st.number_input("Células muertas", min_value=0, value=st.session_state.get("neubauer_muertas", 0), step=1, key="neubauer_muertas")
 
-            calcular_btn = st.button(
-                "Calcular concentración y actualizar retícula",
-                type="primary",
-                use_container_width=True,
-            )
+            # Botones de Acción
+            b_calc, b_reset = st.columns(2)
+            with b_calc:
+                calcular_btn = st.button(
+                    "Calcular concentración y actualizar retícula",
+                    type="primary",
+                    use_container_width=True,
+                )
+            with b_reset:
+                limpiar_btn = st.button(
+                    "Limpiar / Comenzar de nuevo",
+                    type="secondary",
+                    use_container_width=True,
+                )
+
+            if limpiar_btn:
+                reset_neubauer_inputs()
+                st.rerun()
 
         # Conversión de volumen y etiqueta siempre definida
         if "Litros" in unidad_vol:
@@ -669,7 +703,6 @@ elif st.session_state["pagina"] == "Neubauer":
         else:
             st.info("No hay registros almacenados todavía. Guarda un conteo desde el formulario superior.")
 
-
 # ----------------------------------------------------------------------
 # PÁGINA 3: BALANCE IÓNICO
 # ----------------------------------------------------------------------
@@ -741,7 +774,6 @@ elif st.session_state["pagina"] == "Balance":
             st.metric("Cloruro de magnesio", f"{kg_mgcl2:,.1f} kg")
         with s3:
             st.metric("Cloruro de potasio", f"{kg_kcl:,.1f} kg")
-
 
 # ----------------------------------------------------------------------
 # PÁGINA 4: PATOLOGÍA Y ALIMENTACIÓN
