@@ -1,497 +1,417 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Acuícola Pro - Cachama</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+import datetime
+import pandas as pd
+import streamlit as st
+
+# Configuración de página extendida
+st.set_page_config(
+    page_title="AquiApp Integral",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# Estilos CSS coherentes (Tema Ink Oscuro)
+st.markdown(
+    """
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+    /* Fondo general y contenedores */
+    .stApp {
+        background-color: #0B1120;
+        color: #F8FAFC;
+        font-family: 'Inter', sans-serif;
+    }
+
+    div.stButton > button {
+        width: 100%;
+        border-radius: 8px;
+        height: 3.5em;
+        background-color: #1E293B;
+        color: #38BDF8 !important;
+        font-weight: 600;
+        border: 1px solid #334155;
+        transition: all 0.2s ease;
+    }
+
+    div.stButton > button:hover {
+        background-color: #334155;
+        border-color: #38BDF8;
+        color: #FFFFFF !important;
+    }
+
+    .metric-card {
+        background-color: #1E293B;
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 4px solid #0EA5E9;
+        margin-bottom: 10px;
+    }
+
+    /* Cifras tabulares para datos técnicos */
+    .jst-number {
+        font-family: monospace;
+        font-variant-numeric: tabular-nums;
+        font-weight: bold;
+    }
     </style>
-</head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+""",
+    unsafe_allow_html=True,
+)
 
-    <!-- Top Navigation -->
-    <nav class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shadow-md">
-        <div class="flex items-center space-x-3">
-            <i class="fa-solid fa-fish-fins text-2xl text-cyan-400"></i>
-            <span class="text-xl font-bold tracking-wide">AcuiTech <span class="text-xs bg-cyan-500 text-slate-900 px-2 py-0.5 rounded font-semibold">Cachama PRO</span></span>
-        </div>
-        <div class="flex items-center space-x-4">
-            <span class="text-sm text-slate-400"><i class="fa-solid fa-location-dot mr-1 text-cyan-400"></i> Estanque Principal B3</span>
-            <div class="w-8 h-8 rounded-full bg-cyan-700 flex items-center justify-center font-bold text-sm">AC</div>
-        </div>
-    </nav>
+# Inicialización de estado de sesión
+if "pagina" not in st.session_state:
+  st.session_state["pagina"] = "Inicio"
+if "historial_conteos" not in st.session_state:
+  st.session_state["historial_conteos"] = []
+if "bitacora_campo" not in st.session_state:
+  st.session_state["bitacora_campo"] = []
 
-    <div class="flex flex-1 overflow-hidden">
-        <!-- Sidebar -->
-        <aside class="w-64 bg-white border-r border-slate-200 p-4 flex flex-col justify-between hidden md:flex">
-            <div class="space-y-1">
-                <button onclick="switchTab('dashboard')" class="tab-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition active-tab bg-cyan-50 text-cyan-700">
-                    <i class="fa-solid fa-chart-pie w-5"></i>
-                    <span>Panel General</span>
-                </button>
-                <button onclick="switchTab('system-flow')" class="tab-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-100">
-                    <i class="fa-solid fa-diagram-project w-5"></i>
-                    <span>Flujo del Sistema</span>
-                </button>
-                <button onclick="switchTab('feed-manager')" class="tab-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-100">
-                    <i class="fa-solid fa-bowl-food w-5"></i>
-                    <span>Control de Alimentación</span>
-                </button>
-                <button onclick="switchTab('water-quality')" class="tab-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-100">
-                    <i class="fa-solid fa-droplet w-5"></i>
-                    <span>Calidad del Agua</span>
-                </button>
-                <button onclick="switchTab('bitacora')" class="tab-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-100">
-                    <i class="fa-solid fa-book w-5"></i>
-                    <span>Bitácora y Reportes</span>
-                </button>
-            </div>
-            <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-xs font-bold text-slate-500 uppercase">Estado del Sistema</span>
-                    <span class="flex h-2 w-2 relative">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                </div>
-                <div class="text-xs text-slate-600 space-y-1">
-                    <p><span class="font-semibold text-slate-800">Oxígeno:</span> 5.8 mg/L (Óptimo)</p>
-                    <p><span class="font-semibold text-slate-800">Biomasa Est.</span> 1,420 kg</p>
-                </div>
-            </div>
-        </aside>
+# Barra Lateral de Navegación
+with st.sidebar:
+  st.header("🦐 AquiApp Integral")
+  st.caption("Estación de Control Acuícola")
+  st.markdown("---")
 
-        <!-- Main Content Area -->
-        <main class="flex-1 overflow-y-auto p-6 bg-slate-100">
+  if st.button("Inicio / Panel General"):
+    st.session_state["pagina"] = "Inicio"
+    st.rerun()
+  if st.button("🔬 Cámara de Neubauer"):
+    st.session_state["pagina"] = "Neubauer"
+    st.rerun()
+  if st.button("🧪 Balance Iónico"):
+    st.session_state["pagina"] = "Balance"
+    st.rerun()
+  if st.button("🦐 Patología y Alimento"):
+    st.session_state["pagina"] = "Patologia"
+    st.rerun()
 
-            <!-- TAB 1: DASHBOARD -->
-            <div id="dashboard" class="tab-content active space-y-6">
-                <!-- Top Stats -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-slate-500">Biomasa Actual</p>
-                            <h3 class="text-2xl font-bold text-slate-800 mt-1">1,420 <span class="text-sm font-normal text-slate-500">kg</span></h3>
-                        </div>
-                        <div class="w-12 h-12 rounded-lg bg-cyan-100 text-cyan-600 flex items-center justify-center text-xl">
-                            <i class="fa-solid fa-weight-scale"></i>
-                        </div>
-                    </div>
-                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-slate-500">Alimento Suministrado</p>
-                            <h3 class="text-2xl font-bold text-slate-800 mt-1">45.5 <span class="text-sm font-normal text-slate-500">kg/día</span></h3>
-                        </div>
-                        <div class="w-12 h-12 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-xl">
-                            <i class="fa-solid fa-sack-dollar"></i>
-                        </div>
-                    </div>
-                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-slate-500">Conversión Alim. (FCA)</p>
-                            <h3 class="text-2xl font-bold text-emerald-600 mt-1">1.45</h3>
-                        </div>
-                        <div class="w-12 h-12 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl">
-                            <i class="fa-solid fa-chart-line"></i>
-                        </div>
-                    </div>
-                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-slate-500">Temp. Promedio Agua</p>
-                            <h3 class="text-2xl font-bold text-slate-800 mt-1">28.4 <span class="text-sm font-normal text-slate-500">°C</span></h3>
-                        </div>
-                        <div class="w-12 h-12 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center text-xl">
-                            <i class="fa-solid fa-temperature-half"></i>
-                        </div>
-                    </div>
-                </div>
+  st.markdown("---")
+  st.info("Estado del Sistema: Operativo\nModo: Técnico de Campo")
 
-                <!-- Charts Row -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                        <h4 class="font-bold text-slate-800 mb-4">Crecimiento de Biomasa vs. Alimento</h4>
-                        <canvas id="biomasaChart" height="250"></canvas>
-                    </div>
-                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                        <h4 class="font-bold text-slate-800 mb-4">Parámetros de Calidad del Agua</h4>
-                        <canvas id="aguaChart" height="250"></canvas>
-                    </div>
-                </div>
-            </div>
+# LÓGICA DE PÁGINAS
 
-            <!-- TAB 2: SISTEMA ACUÍCOLA (FLUJO) -->
-            <div id="system-flow" class="tab-content space-y-6">
-                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <h2 class="text-xl font-bold text-slate-800 mb-2">Arquitectura del Sistema Acuícola</h2>
-                    <p class="text-sm text-slate-500 mb-6">Modelo conceptual para el cultivo y nutrición de Cachama (*Piaractus brachypomus*).</p>
+# ----------------------------------------------------------------------
+# PÁGINA 1: INICIO Y PANEL DE CONTROL
+# ----------------------------------------------------------------------
+if st.session_state["pagina"] == "Inicio":
+  st.title("Sistema de Gestión Acuícola")
+  st.subheader("Consola Central de Operaciones")
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <!-- Entradas -->
-                        <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                            <div class="flex items-center space-x-2 text-emerald-600 mb-3">
-                                <i class="fa-solid fa-right-to-bracket font-bold"></i>
-                                <h3 class="font-bold text-slate-800">Entradas del Sistema</h3>
-                            </div>
-                            <ul class="space-y-2 text-sm">
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100 flex items-center"><i class="fa-solid fa-water text-cyan-500 mr-2"></i> Agua dulce (controlada)</li>
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100 flex items-center"><i class="fa-solid fa-fish text-amber-600 mr-2"></i> Alevinos de Cachama</li>
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100 flex items-center"><i class="fa-solid fa-cubes text-emerald-600 mr-2"></i> Alimento balanceado extruido</li>
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100 flex items-center"><i class="fa-solid fa-apple-whole text-red-500 mr-2"></i> Suplementos orgánicos / Frutas</li>
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100 flex items-center"><i class="fa-solid fa-bolt text-yellow-500 mr-2"></i> Energía y Mano de obra</li>
-                            </ul>
-                        </div>
+  st.markdown("""
+    Bienvenido a **AquiApp Integral**. Esta plataforma consolida las herramientas críticas para el monitoreo de laboratorio y campo. Seleccione un módulo para iniciar el procesamiento de datos.
+    """)
 
-                        <!-- Procesos -->
-                        <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                            <div class="flex items-center space-x-2 text-cyan-600 mb-3">
-                                <i class="fa-solid fa-gears font-bold"></i>
-                                <h3 class="font-bold text-slate-800">Procesos Clave</h3>
-                            </div>
-                            <ul class="space-y-2 text-sm">
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100"><span class="font-bold text-cyan-600 mr-1">1.</span> Preparación y encalado de estanques</li>
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100"><span class="font-bold text-cyan-600 mr-1">2.</span> Siembra y aclimatación</li>
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100"><span class="font-bold text-cyan-600 mr-1">3.</span> Cálculo de tasa de alimentación</li>
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100"><span class="font-bold text-cyan-600 mr-1">4.</span> Suministro fraccionado de alimento</li>
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100"><span class="font-bold text-cyan-600 mr-1">5.</span> Biometrías periódicas</li>
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100"><span class="font-bold text-cyan-600 mr-1">6.</span> Monitoreo fisicoquímico</li>
-                            </ul>
-                        </div>
+  col1, col2, col3 = st.columns(3)
 
-                        <!-- Salidas -->
-                        <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                            <div class="flex items-center space-x-2 text-indigo-600 mb-3">
-                                <i class="fa-solid fa-right-from-bracket font-bold"></i>
-                                <h3 class="font-bold text-slate-800">Salidas del Sistema</h3>
-                            </div>
-                            <ul class="space-y-2 text-sm">
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100 flex items-center"><i class="fa-solid fa-fish text-indigo-600 mr-2"></i> Biomasa de Cachama comercial</li>
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100 flex items-center"><i class="fa-solid fa-file-invoice text-slate-600 mr-2"></i> Registros de Conversión (FCA)</li>
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100 flex items-center"><i class="fa-solid fa-chart-pie text-cyan-500 mr-2"></i> Historial de calidad de agua</li>
-                                <li class="bg-white p-2 rounded shadow-sm border border-slate-100 flex items-center"><i class="fa-solid fa-biohazard text-amber-500 mr-2"></i> Efluentes y materia orgánica</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
+  with col1:
+    st.metric(label="Módulos Activos", value="3/3")
+    if st.button("Acceder a Neubauer"):
+      st.session_state["pagina"] = "Neubauer"
+      st.rerun()
 
-            <!-- TAB 3: CONTROL DE ALIMENTACIÓN -->
-            <div id="feed-manager" class="tab-content space-y-6">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-1">
-                        <h3 class="font-bold text-slate-800 mb-4">Calcular Ración Diaria</h3>
-                        <form id="feedForm" class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Biomasa Total Estimada (kg)</label>
-                                <input type="number" id="biomassInput" value="1420" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded text-sm focus:ring-cyan-500 focus:border-cyan-500">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">% Proteína Requerida</label>
-                                <select id="proteinSelect" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded text-sm focus:ring-cyan-500 focus:border-cyan-500">
-                                    <option value="32">32% - Iniciación (Alevinos)</option>
-                                    <option value="28" selected>28% - Levante (Juveniles)</option>
-                                    <option value="24">24% - Engorde Final</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Tasa de Alimentación (% Biomasa)</label>
-                                <input type="number" id="rateInput" step="0.1" value="3.2" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded text-sm focus:ring-cyan-500 focus:border-cyan-500">
-                            </div>
-                            <button type="button" onclick="calcularAlimento()" class="w-full bg-cyan-600 text-white py-2.5 rounded font-semibold text-sm hover:bg-cyan-700 transition">Calcular Ración</button>
-                        </form>
+  with col2:
+    st.metric(
+        label="Bitácoras Guardadas", value=len(st.session_state["bitacora_campo"])
+    )
+    if st.button("Acceder a Balance"):
+      st.session_state["pagina"] = "Balance"
+      st.rerun()
 
-                        <div class="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                            <p class="text-xs text-slate-500 mb-1">Resultado del Cálculo:</p>
-                            <h4 class="text-xl font-bold text-cyan-600"><span id="resultadoRacion">45.44</span> <span class="text-sm font-normal text-slate-600">kg de alimento/día</span></h4>
-                            <p class="text-[11px] text-slate-500 mt-2">Dividir en 3 tomas diarias (Mañana, Mediodía, Tarde).</p>
-                        </div>
-                    </div>
+  with col3:
+    st.info(
+        "Protocolo vigente: Inspección clínica y ajuste de ración diaria."
+    )
+    if st.button("Acceder a Patología"):
+      st.session_state["pagina"] = "Patologia"
+      st.rerun()
 
-                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-2">
-                        <h3 class="font-bold text-slate-800 mb-4">Registro Rápido de Suministro</h3>
-                        <form id="registroAlimentoForm" onsubmit="registrarAlimento(event)" class="space-y-4">
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Fecha</label>
-                                    <input type="date" id="logDate" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded text-sm">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Cantidad Suministrada (kg)</label>
-                                    <input type="number" id="logQty" step="0.5" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded text-sm">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Tipo de Alimento</label>
-                                    <select id="logType" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded text-sm">
-                                        <option value="Extruido Comercial">Extruido Comercial</option>
-                                        <option value="Fruta Local">Fruta Local</option>
-                                        <option value="Complemento Agrícola">Complemento Agrícola</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Observaciones</label>
-                                <input type="text" id="logObs" placeholder="Ej. Consumo total en 15 minutos..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded text-sm">
-                            </div>
-                            <button type="submit" class="bg-emerald-600 text-white px-6 py-2.5 rounded font-semibold text-sm hover:bg-emerald-700 transition"><i class="fa-solid fa-plus mr-2"></i>Registrar en Bitácora</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
+# ----------------------------------------------------------------------
+# PÁGINA 2: CÁMARA DE NEUBAUER
+# ----------------------------------------------------------------------
+elif st.session_state["pagina"] == "Neubauer":
+  st.title("🔬 Módulo de Cámara de Neubauer")
+  st.markdown("Cálculo automatizado de densidad celular y viabilidad.")
 
-            <!-- TAB 4: CALIDAD DEL AGUA -->
-            <div id="water-quality" class="tab-content space-y-6">
-                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 class="font-bold text-slate-800 mb-4">Registro de Parámetros Físico-Químicos</h3>
-                    <form id="aguaForm" onsubmit="registrarAgua(event)" class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Fecha</label>
-                            <input type="date" id="aguaDate" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Oxígeno Disuelto (mg/L)</label>
-                            <input type="number" step="0.1" id="aguaO2" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Temperatura (°C)</label>
-                            <input type="number" step="0.1" id="aguaTemp" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">pH</label>
-                            <input type="number" step="0.1" id="aguaPH" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded text-sm">
-                        </div>
-                        <div class="flex items-end">
-                            <button type="submit" class="w-full bg-cyan-600 text-white py-2.5 rounded font-semibold text-sm hover:bg-cyan-700 transition">Guardar Parámetros</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+  aba1, aba2 = st.tabs(["Cálculo y Retícula", "Bitácora de Muestreo"])
 
-            <!-- TAB 5: BITÁCORA Y REPORTES -->
-            <div id="bitacora" class="tab-content space-y-6">
-                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <div class="flex items-center justify-between mb-4">
-                        <div>
-                            <h3 class="font-bold text-slate-800">Bitácora de Eventos y Controles</h3>
-                            <p class="text-sm text-slate-500">Historial de alimentación y calidad del agua.</p>
-                        </div>
-                        <div class="flex space-x-2">
-                            <button onclick="exportarCSV()" class="bg-slate-800 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-slate-900 transition flex items-center"><i class="fa-solid fa-file-csv mr-2"></i>Exportar CSV</button>
-                            <button onclick="exportarPDF()" class="bg-rose-600 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-rose-700 transition flex items-center"><i class="fa-solid fa-file-pdf mr-2"></i>Exportar PDF</button>
-                            <button onclick="vaciarBitacora()" class="bg-red-100 text-red-600 px-4 py-2 rounded text-sm font-semibold hover:bg-red-200 transition flex items-center"><i class="fa-solid fa-trash mr-2"></i>Vaciar</button>
-                        </div>
-                    </div>
+  with aba1:
+    col_param1, col_param2 = st.columns(2)
+    with col_param1:
+      factor_dilucion = st.number_input(
+          "Factor de Dilución", min_value=1.0, value=10.0, step=0.5
+      )
+    with col_param2:
+      volumen_objetivo = st.number_input(
+          "Volumen de Inóculo (Litros)", min_value=1.0, value=500.0, step=10.0
+      )
 
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm text-slate-600">
-                            <thead class="bg-slate-50 text-slate-700 uppercase font-semibold text-xs border-b border-slate-200">
-                                <tr>
-                                    <th class="py-3 px-4">Fecha</th>
-                                    <th class="py-3 px-4">Tipo</th>
-                                    <th class="py-3 px-4">Detalles</th>
-                                    <th class="py-3 px-4">Observaciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="bitacoraBody" class="divide-y divide-slate-100">
-                                <!-- Dinámico -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+    st.markdown("### Conteo de Cuadrantes (Hemocitómetro)")
+    c1 = st.number_input(
+        "Cuadrante 1 (Esquina Superior Izq)", min_value=0, value=45, step=1
+    )
+    c2 = st.number_input(
+        "Cuadrante 2 (Esquina Superior Der)", min_value=0, value=50, step=1
+    )
+    c3 = st.number_input("Cuadrante 3 (Centro)", min_value=0, value=48, step=1)
+    c4 = st.number_input(
+        "Cuadrante 4 (Esquina Inferior Izq)", min_value=0, value=52, step=1
+    )
+    c5 = st.number_input(
+        "Cuadrante 5 (Esquina Inferior Der)", min_value=0, value=47, step=1
+    )
 
-        </main>
-    </div>
+    st.markdown("### Evaluación de Viabilidad Celular")
+    vivas = st.number_input(
+        "Células Vivas observadas", min_value=0, value=202, step=1
+    )
+    muertas = st.number_input(
+        "Células Muertas observadas", min_value=0, value=40, step=1
+    )
 
-    <script>
-        // Datos iniciales simulados
-        let bitacoraData = [
-            { id: 1, fecha: new Date().toISOString().split('T')[0], tipo: 'Alimentación', detalles: '45.0 kg - Extruido Comercial', obs: 'Consumo normal matutino' },
-            { id: 2, fecha: new Date().toISOString().split('T')[0], tipo: 'Calidad Agua', detalles: 'O2: 6.0 mg/L | Temp: 28°C | pH: 7.2', obs: 'Sin novedades' }
-        ];
+    if st.button("Ejecutar Cálculo Hematológico"):
+      conteos = [c1, c2, c3, c4, c5]
+      promedio = sum(conteos) / len(conteos)
+      constante_neubauer = 10000
+      concentracion = promedio * factor_dilucion * constante_neubauer
+      volumen_total_celulas = concentracion * volumen_objetivo
 
-        // Inicialización de la página
-        window.onload = function() {
-            document.getElementById('logDate').value = new Date().toISOString().split('T')[0];
-            document.getElementById('aguaDate').value = new Date().toISOString().split('T')[0];
-            renderCharts();
-            renderBitacora();
-        };
+      st.metric(
+          label="Concentración Estimada", value=f"{concentracion:,.0f} cél/mL"
+      )
+      st.metric(
+          label="Carga Celular Total en Volumen Objetivo",
+          value=f"{volumen_total_celulas:,.0e} células",
+      )
 
-        // Cambio de pestañas
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(tb => {
-                tb.classList.remove('bg-cyan-50', 'text-cyan-700');
-                tb.classList.add('text-slate-600');
-            });
-            document.getElementById(tabId).classList.add('active');
-            event.currentTarget.classList.add('bg-cyan-50', 'text-cyan-700');
-            event.currentTarget.classList.remove('text-slate-600');
+      total_evaluadas = vivas + muertas
+      if total_evaluadas > 0:
+        porcentaje_viva = (vivas / total_evaluadas) * 100
+        st.info(f"Viabilidad Celular: {porcentaje_viva:.2f}%")
+        if porcentaje_viva < 80:
+          st.warning("Alerta: Baja viabilidad celular detectada.")
+
+      st.session_state["ultimo_calculo_neubauer"] = {
+          "concentracion": concentracion,
+          "viabilidad": (
+              (vivas / total_evaluadas * 100) if total_evaluadas > 0 else 100
+          ),
+          "volumen": volumen_objetivo,
+      }
+
+  with aba2:
+    st.subheader("Registro Histórico de Conteos")
+    identificador = st.text_input("Identificación de la Muestra / Estanque")
+    observaciones = st.text_area("Notas de Campo / Estado del Cultivo")
+
+    if st.button("Registrar en Bitácora"):
+      if "ultimo_calculo_neubauer" in st.session_state and identificador:
+        registro = {
+            "Fecha": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Muestra": identificador,
+            "Concentración (cél/mL)": (
+                f"{st.session_state['ultimo_calculo_neubauer']['concentracion']:,.0f}"
+            ),
+            "Viabilidad (%)": (
+                f"{st.session_state['ultimo_calculo_neubauer']['viabilidad']:.2f}%"
+            ),
+            "Observaciones": observaciones,
         }
+        st.session_state["bitacora_campo"].append(registro)
+        st.success("Registro añadido a la base de datos local.")
+      else:
+        st.error("Realice el cálculo previo y asigne un identificador.")
 
-        // Cálculo de alimento
-        function calcularAlimento() {
-            const biomasa = parseFloat(document.getElementById('biomassInput').value);
-            const tasa = parseFloat(document.getElementById('rateInput').value);
-            const resultado = (biomasa * (tasa / 100)).toFixed(2);
-            document.getElementById('resultadoRacion').innerText = resultado;
-        }
+    if st.session_state["bitacora_campo"]:
+      df_historial = pd.DataFrame(st.session_state["bitacora_campo"])
+      st.table(df_historial)
 
-        // Registrar Alimentación
-        function registrarAlimento(e) {
-            e.preventDefault();
-            const fecha = document.getElementById('logDate').value;
-            const qty = document.getElementById('logQty').value;
-            const type = document.getElementById('logType').value;
-            const obs = document.getElementById('logObs').value;
+      csv = df_historial.to_csv(index=False).encode("utf-8")
+      st.download_button(
+          label="Descargar Bitácora en CSV",
+          data=csv,
+          file_name="bitacora_neubauer.csv",
+          mime="text/csv",
+      )
 
-            bitacoraData.push({
-                id: Date.now(),
-                fecha: fecha,
-                tipo: 'Alimentación',
-                detalles: `${qty} kg - ${type}`,
-                obs: obs
-            });
+# ----------------------------------------------------------------------
+# PÁGINA 3: BALANCE IÓNICO
+# ----------------------------------------------------------------------
+elif st.session_state["pagina"] == "Balance":
+  st.title("🧪 Módulo de Balance Iónico")
+  st.markdown(
+      "Monitoreo de proporciones de Calcio ($Ca^{2+}$), Magnesio ($Mg^{2+}$) y"
+      " Potasio ($K^+$)."
+  )
 
-            renderBitacora();
-            document.getElementById('registroAlimentoForm').reset();
-            document.getElementById('logDate').value = new Date().toISOString().split('T')[0];
-            alert("Registro de alimentación guardado.");
-        }
+  salinidad = st.number_input(
+      "Salinidad del Agua (ppt / PSU)", min_value=0.0, value=25.0, step=0.5
+  )
 
-        // Registrar Agua
-        function registrarAgua(e) {
-            e.preventDefault();
-            const fecha = document.getElementById('aguaDate').value;
-            const o2 = document.getElementById('aguaO2').value;
-            const temp = document.getElementById('aguaTemp').value;
-            const ph = document.getElementById('aguaPH').value;
+  st.markdown("### Concentraciones Medidas en Laboratorio (mg/L)")
+  calcio_medido = st.number_input(
+      "Calcio ($Ca^{2+}$) [mg/L]", min_value=0.0, value=350.0, step=5.0
+  )
+  magnesio_medido = st.number_input(
+      "Magnesio ($Mg^{2+}$) [mg/L]", min_value=0.0, value=1100.0, step=10.0
+  )
+  potasio_medido = st.number_input(
+      "Potasio ($K^+$) [mg/L]", min_value=0.0, value=35.0, step=1.0
+  )
 
-            bitacoraData.push({
-                id: Date.now(),
-                fecha: fecha,
-                tipo: 'Calidad Agua',
-                detalles: `O2: ${o2} mg/L | Temp: ${temp}°C | pH: ${ph}`,
-                obs: 'Control rutinario'
-            });
+  if st.button("Calcular Relaciones Iónicas y Déficit"):
+    rel_mg_ca_ideal = 3.1
+    rel_ca_k_ideal = 10.0
 
-            renderBitacora();
-            document.getElementById('aguaForm').reset();
-            document.getElementById('aguaDate').value = new Date().toISOString().split('T')[0];
-            alert("Parámetros de agua registrados.");
-        }
+    rel_mg_ca = magnesio_medido / calcio_medido if calcio_medido > 0 else 0
+    rel_ca_k = calcio_medido / potasio_medido if potasio_medido > 0 else 0
 
-        // Renderizar Bitácora
-        function renderBitacora() {
-            const tbody = document.getElementById('bitacoraBody');
-            tbody.innerHTML = '';
-            bitacoraData.forEach(item => {
-                const badgeClass = item.tipo === 'Alimentación' ? 'bg-amber-100 text-amber-800' : 'bg-cyan-100 text-cyan-800';
-                tbody.innerHTML += `
-                    <tr>
-                        <td class="py-3 px-4 font-medium">${item.fecha}</td>
-                        <td class="py-3 px-4"><span class="px-2 py-1 rounded-full text-xs font-semibold ${badgeClass}">${item.tipo}</span></td>
-                        <td class="py-3 px-4">${item.detalles}</td>
-                        <td class="py-3 px-4 text-slate-500">${item.obs}</td>
-                    </tr>
-                `;
-            });
-        }
+    st.markdown("### Resultados del Diagnóstico Iónico")
+    col_res1, col_res2 = st.columns(2)
+    with col_res1:
+      st.metric(
+          label="Relación Magnesio:Calcio",
+          value=f"{rel_mg_ca:.2f}",
+          help=f"Objetivo: ~{rel_mg_ca_ideal}",
+      )
+    with col_res2:
+      st.metric(
+          label="Relación Calcio:Potasio",
+          value=f"{rel_ca_k:.2f}",
+          help=f"Objetivo: ~{rel_ca_k_ideal}",
+      )
 
-        // Vaciar Bitácora
-        function vaciarBitacora() {
-            if(confirm("¿Estás seguro de vaciar todo el historial?")) {
-                bitacoraData = [];
-                renderBitacora();
-            }
-        }
+    st.markdown("### Estimación de Dosificación de Sales (Correctoras)")
+    volumen_estanque = st.number_input(
+        "Volumen del Estanque (Metros Cúbicos - $m^3$)",
+        min_value=100,
+        value=2500,
+        step=100,
+    )
 
-        // Exportar a CSV
-        function exportarCSV() {
-            let csvContent = "data:text/csv;charset=utf-8,Fecha,Tipo,Detalles,Observaciones\n";
-            bitacoraData.forEach(e => {
-                csvContent += `"${e.fecha}","${e.tipo}","${e.detalles}","${e.obs}"\n`;
-            });
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "bitacora_acuicola.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
+    meta_k = salinidad * 28.0
+    deficit_k = max(0, meta_k - potasio_medido)
+    kg_kcl_requeridos = (deficit_k * volumen_estanque) / 524000
 
-        // Exportar a PDF
-        function exportarPDF() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.text("Bitácora de Control Acuícola - Cachama", 14, 16);
-            const headers = [["Fecha", "Tipo", "Detalles", "Observaciones"]];
-            const data = bitacoraData.map(e => [e.fecha, e.tipo, e.detalles, e.obs]);
-            doc.autoTable({ head: headers, body: data, startY: 22 });
-            doc.save("bitacora_acuicola.pdf");
-        }
+    meta_ca = salinidad * 11.6
+    deficit_ca = max(0, meta_ca - calcio_medido)
+    kg_caso4_requeridos = (deficit_ca * volumen_estanque) / 232000
 
-        // Gráficos con Chart.js
-        let chartBiomasa, chartAgua;
-        function renderCharts() {
-            const ctxBiomasa = document.getElementById('biomasaChart').getContext('2d');
-            chartBiomasa = new Chart(ctxBiomasa, {
-                type: 'line',
-                data: {
-                    labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5', 'Sem 6'],
-                    datasets: [{
-                        label: 'Biomasa Estimada (kg)',
-                        data: [200, 450, 750, 1000, 1250, 1420],
-                        borderColor: '#0284c7',
-                        tension: 0.1,
-                        fill: true,
-                        backgroundColor: 'rgba(2, 132, 199, 0.1)'
-                    }, {
-                        label: 'Alimento Diario (kg)',
-                        data: [10, 20, 35, 45, 42, 45],
-                        borderColor: '#f59e0b',
-                        tension: 0.1
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+    st.info(f"Déficit estimado de Potasio: {deficit_k:.2f} mg/L")
+    st.metric(
+        label="Sulfato de Calcio ($CaSO_4$) a aplicar",
+        value=f"{kg_caso4_requeridos:.2f} kg",
+    )
+    st.metric(
+        label="Cloruro de Potasio ($KCl$) a aplicar",
+        value=f"{kg_kcl_requeridos:.2f} kg",
+    )
 
-            const ctxAgua = document.getElementById('aguaChart').getContext('2d');
-            chartAgua = new Chart(ctxAgua, {
-                type: 'line',
-                data: {
-                    labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
-                    datasets: [{
-                        label: 'Oxígeno Disuelto (mg/L)',
-                        data: [6.2, 5.9, 6.0, 5.8, 6.1, 5.9, 5.8],
-                        borderColor: '#10b981',
-                        yAxisID: 'y'
-                    }, {
-                        label: 'Temperatura (°C)',
-                        data: [27.5, 28.0, 28.2, 28.4, 27.9, 28.1, 28.4],
-                        borderColor: '#ef4444',
-                        yAxisID: 'y1'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: { type: 'linear', position: 'left', min: 0, max: 10 },
-                        y1: { type: 'linear', position: 'right', min: 20, max: 35, grid: { drawOnChartArea: false } }
-                    }
-                }
-            });
-        }
-    </script>
-</body>
-</html>
+# ----------------------------------------------------------------------
+# PÁGINA 4: PATOLOGÍA Y ALIMENTACIÓN
+# ----------------------------------------------------------------------
+elif st.session_state["pagina"] == "Patologia":
+  st.title("🦐 Módulo de Patología y Alimentación")
+  st.markdown(
+      "Evaluación clínica en fresco y cálculo de biomasa para ajuste de"
+      " raciones."
+  )
+
+  aba1, aba2 = st.tabs(
+      ["Calculadora de Ración", "Lista de Verificación Clínica"]
+  )
+
+  with aba1:
+    st.markdown("### Parámetros Poblacionales")
+    poblacion = st.number_input(
+        "Población Total Estimada (Organismos)",
+        min_value=1000,
+        value=500000,
+        step=10000,
+    )
+    peso_promedio = st.number_input(
+        "Peso Promedio Actual (Gramos)", min_value=0.1, value=12.5, step=0.5
+    )
+    factor_conversion = st.number_input(
+        "Tasa de Alimentación (% Biomasa)", min_value=0.5, value=2.5, step=0.1
+    )
+
+    if st.button("Calcular Biomasa y Ración"):
+      biomasa_kg = (poblacion * peso_promedio) / 1000
+      racion_diaria_kg = biomasa_kg * (factor_conversion / 100)
+      racion_por_toma_kg = racion_diaria_kg / 4
+
+      st.metric(label="Biomasa Total Estimada", value=f"{biomasa_kg:,.2f} kg")
+      st.metric(
+          label="Ración Diaria Recomendada", value=f"{racion_diaria_kg:,.2f} kg/día"
+      )
+      st.metric(
+          label="Ración por Suministro (4 tomas)",
+          value=f"{racion_por_toma_kg:,.2f} kg/toma",
+      )
+
+  with aba2:
+    st.markdown("### Inspección Clínico-Patológica en Fresco")
+    st.write(
+        "Marque solo las anomalías detectadas durante la necropsia de campo:"
+    )
+
+    hepatopancreas_normal = st.checkbox(
+        "Hepatopáncreas: Lóbulos definidos, color ámbar, lípidos presentes.",
+        value=True,
+    )
+    hp_anomalia = (
+        False
+        if hepatopancreas_normal
+        else st.multiselect(
+            "Anomalías en Hepatopáncreas",
+            ["Atrofia / Pálido", "Flácido", "Presencia de melanización"],
+        )
+    )
+
+    branquias_normales = st.checkbox(
+        "Branquias: Limpias, sin obstrucción ni epibiontes.", value=True
+    )
+    branquias_anomalia = (
+        False
+        if branquias_normales
+        else st.multiselect(
+            "Anomalías en Branquias",
+            [
+                "Sucias / Acumulación de sedimentos",
+                "Presencia de hongos/protozoarios",
+                "Necrosis",
+            ],
+        )
+    )
+
+    intestino_normal = st.checkbox(
+        "Intestino: Compacto, tracto lleno de alimento.", value=True
+    )
+    int_anomalia = (
+        False
+        if intestino_normal
+        else st.multiselect(
+            "Anomalías Intestinales",
+            ["Vacío", "Presencia de fluido amarillento / discontinuidad"],
+        )
+    )
+
+    cuticula_normal = st.checkbox(
+        "Cutícula: Dura, sin signos de síndrome de caparazón blando.",
+        value=True,
+    )
+
+    if st.button("Generar Dictamen Clínico"):
+      if (
+          hepatopancreas_normal
+          and branquias_normales
+          and intestino_normal
+          and cuticula_normal
+      ):
+        st.success(
+            "Dictamen: Población sin signos clínicos patológicos aparentes."
+            " Mantener tasa de alimentación."
+        )
+      else:
+        st.error(
+            "Dictamen: Se detectaron anomalías morfológicas. Se recomienda"
+            " restringir alimentación y enviar muestras a laboratorio PCR."
+        )
