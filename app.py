@@ -38,13 +38,11 @@ st.markdown(
         color: var(--text-primary);
     }
 
-    /* Ocultar decoración superior por defecto de Streamlit */
     header[data-testid="stHeader"] {
         background-color: rgba(11, 13, 20, 0.85);
         border-bottom: 1px solid var(--border-hairline);
     }
 
-    /* Sidebar estilizado */
     section[data-testid="stSidebar"] {
         background-color: var(--bg-deep);
         border-right: 1px solid var(--border-hairline);
@@ -70,7 +68,6 @@ st.markdown(
         border-color: var(--border-hairline);
     }
 
-    /* Botones principales en contenido */
     div[data-testid="stMain"] div.stButton > button {
         background-color: var(--bg-elevated);
         color: var(--text-primary);
@@ -101,7 +98,6 @@ st.markdown(
         color: #07080d;
     }
 
-    /* Tarjetas y contenedores */
     .pro-card {
         background-color: var(--bg-card);
         border: 1px solid var(--border-hairline);
@@ -153,7 +149,6 @@ st.markdown(
         display: inline-block;
     }
 
-    /* Ajustes de inputs y métricas nativas */
     [data-testid="stMetric"] {
         background-color: var(--bg-card);
         border: 1px solid var(--border-hairline);
@@ -173,7 +168,6 @@ st.markdown(
         font-size: 0.85rem !important;
     }
 
-    /* Pestañas limpias */
     button[data-baseweb="tab"] {
         font-size: 0.9rem;
         font-weight: 500;
@@ -319,7 +313,7 @@ def build_printable_html(df: pd.DataFrame) -> str:
 </html>"""
 
 
-# 4. Barra lateral persistente (Shell de aplicación)
+# 4. Barra lateral persistente
 with st.sidebar:
     st.markdown(
         """
@@ -494,7 +488,9 @@ elif st.session_state["pagina"] == "Neubauer":
                     "Volumen objetivo", min_value=0.0, value=0.0, step=1.0, format="%.1f"
                 )
             with p3:
-                unidad_vol = st.selectbox("Unidad de volumen", ["Mililitros (mL)", "Litros (L)", "Toneladas (Ton)"])
+                unidad_vol = st.selectbox(
+                    "Unidad de volumen", ["Mililitros (mL)", "Litros (L)", "Toneladas (Ton)"]
+                )
 
             st.markdown("---")
             st.markdown("**Cuadrantes de las esquinas (16 subcuadros cada uno)**")
@@ -508,12 +504,8 @@ elif st.session_state["pagina"] == "Neubauer":
 
             st.markdown("---")
             st.markdown("**Cuadrante central (Cuadrante 5 · 25 subcuadros)**")
-            st.caption(
-                "Apartado independiente para el cuadrante central de 25 cuadros."
-            )
-            c5 = st.number_input(
-                "Cuadrante 5 (Central · 25 cuadros)", min_value=0, value=0, step=1
-            )
+            st.caption("Apartado independiente para el cuadrante central de 25 cuadros.")
+            c5 = st.number_input("Cuadrante 5 (Central · 25 cuadros)", min_value=0, value=0, step=1)
 
             st.markdown("---")
             st.markdown("**Viabilidad celular diferencial (opcional)**")
@@ -523,14 +515,13 @@ elif st.session_state["pagina"] == "Neubauer":
             with v2:
                 muertas = st.number_input("Células muertas", min_value=0, value=0, step=1)
 
-            calcular_btn = st.button("Calcular concentración y actualizar retícula", type="primary", use_container_width=True)
+            calcular_btn = st.button(
+                "Calcular concentración y actualizar retícula",
+                type="primary",
+                use_container_width=True,
+            )
 
-        # Cálculos
-        promedio_esquinas = sum([c1, c2, c3, c4]) / 4.0
-        constante_neubauer = 10000
-        conc_esquinas = promedio_esquinas * factor_dilucion * constante_neubauer
-        conc_central = c5 * factor_dilucion * constante_neubauer
-
+        # Conversión de volumen y etiqueta siempre definida
         if "Litros" in unidad_vol:
             volumen_mL = volumen_objetivo * 1000.0
             unidad_label = "L"
@@ -539,4 +530,266 @@ elif st.session_state["pagina"] == "Neubauer":
             unidad_label = "Ton"
         else:
             volumen_mL = volumen_objetivo
-            unidad_label
+            unidad_label = "mL"
+
+        promedio_esquinas = sum([c1, c2, c3, c4]) / 4.0
+        constante_neubauer = 10000
+        conc_esquinas = promedio_esquinas * factor_dilucion * constante_neubauer
+        conc_central = c5 * factor_dilucion * constante_neubauer
+        celulas_totales = conc_esquinas * volumen_mL
+
+        total_viab = vivas + muertas
+        viabilidad_pct = (vivas / total_viab * 100.0) if total_viab > 0 else None
+
+        if calcular_btn or st.session_state["ultimo_calculo_neubauer"] is None:
+            st.session_state["ultimo_calculo_neubauer"] = {
+                "c1": c1,
+                "c2": c2,
+                "c3": c3,
+                "c4": c4,
+                "c5": c5,
+                "dilucion": factor_dilucion,
+                "volumen": volumen_objetivo,
+                "unidad_vol": unidad_vol,
+                "conc_esquinas": conc_esquinas,
+                "conc_central": conc_central,
+                "viabilidad": viabilidad_pct,
+                "celulas_totales": celulas_totales,
+                "vivas": vivas,
+                "muertas": muertas,
+            }
+
+        with col_vis:
+            st.markdown(render_neubauer_svg(c1, c2, c3, c4, c5), unsafe_allow_html=True)
+
+            st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+            st.metric(
+                label="Concentración · Cuadrantes esquina (C1–C4)",
+                value=f"{conc_esquinas:,.0f} cél/mL",
+                delta=f"Promedio: {promedio_esquinas:.1f} cél/cuadrante",
+            )
+            st.metric(
+                label="Concentración · Cuadrante central (C5 · 25 cuadros)",
+                value=f"{conc_central:,.0f} cél/mL",
+                delta=f"Lectura directa C5: {c5} cél",
+            )
+            st.metric(
+                label=f"Carga total en {volumen_objetivo:,.2f} {unidad_label}",
+                value=f"{celulas_totales:,.0f} cél",
+            )
+
+            if viabilidad_pct is not None:
+                color_bar = "#4cc38a" if viabilidad_pct >= 80 else "#e5484d"
+                st.markdown(
+                    f"""
+                    <div class="pro-card" style="margin-top:10px;">
+                        <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:8px;">
+                            <span style="color:#a3a9b8;">Viabilidad celular</span>
+                            <span style="font-family:'JetBrains Mono',monospace; font-weight:600; color:{color_bar};">{viabilidad_pct:.2f}%</span>
+                        </div>
+                        <div style="width:100%; height:8px; background:#1a1e28; border-radius:4px; overflow:hidden;">
+                            <div style="width:{min(viabilidad_pct, 100):.1f}%; height:100%; background:{color_bar};"></div>
+                        </div>
+                        <div style="font-size:0.78rem; color:#7a8296; margin-top:8px;">
+                            Vivas: {vivas} · Muertas: {muertas} (Total evaluado: {total_viab})
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+    with tab_hist:
+        st.subheader("Bitácora de conteos")
+        reg_col1, reg_col2 = st.columns([1.2, 1.8])
+        with reg_col1:
+            identificador = st.text_input(
+                "Nombre de la muestra / Especie",
+                placeholder="Ej. Chaetoceros gracilis - Tanque 04",
+            )
+        with reg_col2:
+            notas_muestra = st.text_input(
+                "Observaciones técnicas",
+                placeholder="Ej. Fase exponencial, sin contaminación de ciliados",
+            )
+
+        if st.button("Guardar lectura actual en bitácora", type="primary"):
+            if identificador.strip():
+                datos = st.session_state["ultimo_calculo_neubauer"]
+                viab_str = (
+                    f"{datos['viabilidad']:.2f}%"
+                    if datos["viabilidad"] is not None
+                    else "N/A"
+                )
+                nuevo_registro = {
+                    "Fecha y hora": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "Muestra / Especie": identificador.strip(),
+                    "C1–C4 (16c)": f"{datos['c1']}, {datos['c2']}, {datos['c3']}, {datos['c4']}",
+                    "C5 Central (25c)": datos["c5"],
+                    "Dilución": f"{datos['dilucion']}x",
+                    "Vol. Objetivo": f"{datos['volumen']} {datos['unidad_vol'].split()[0]}",
+                    "Conc. Esquinas (cél/mL)": f"{datos['conc_esquinas']:,.0f}",
+                    "Conc. C5 (cél/mL)": f"{datos['conc_central']:,.0f}",
+                    "Carga Total (cél)": f"{datos['celulas_totales']:,.0f}",
+                    "Viabilidad": viab_str,
+                    "Observaciones": notas_muestra.strip() or "—",
+                }
+                st.session_state["bitacora_campo"].append(nuevo_registro)
+                st.success(f"Muestra '{identificador.strip()}' registrada en la bitácora.")
+            else:
+                st.warning("Asigna un nombre a la muestra o especie antes de guardar.")
+
+        st.markdown("---")
+        if st.session_state["bitacora_campo"]:
+            df_bitacora = pd.DataFrame(st.session_state["bitacora_campo"])
+            st.dataframe(df_bitacora, use_container_width=True, hide_index=True)
+
+            exp1, exp2, exp3 = st.columns([1, 1, 1])
+            with exp1:
+                csv_bytes = df_bitacora.to_csv(index=False).encode("utf-8-sig")
+                st.download_button(
+                    label="Exportar bitácora (CSV)",
+                    data=csv_bytes,
+                    file_name=f"bitacora_neubauer_{datetime.date.today()}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+            with exp2:
+                html_report = build_printable_html(df_bitacora).encode("utf-8")
+                st.download_button(
+                    label="Exportar reporte imprimible / PDF",
+                    data=html_report,
+                    file_name=f"reporte_neubauer_{datetime.date.today()}.html",
+                    mime="text/html",
+                    use_container_width=True,
+                )
+            with exp3:
+                if st.button("Vaciar historial", use_container_width=True):
+                    st.session_state["bitacora_campo"] = []
+                    st.rerun()
+        else:
+            st.info("No hay registros almacenados todavía. Guarda un conteo desde el formulario superior.")
+
+
+# ----------------------------------------------------------------------
+# PÁGINA 3: BALANCE IÓNICO
+# ----------------------------------------------------------------------
+elif st.session_state["pagina"] == "Balance":
+    st.title("Balance iónico y calidad de agua")
+    st.markdown(
+        "<p style='color:#a3a9b8; margin-bottom:18px;'>"
+        "Cálculo de proporciones críticas de Calcio, Magnesio y Potasio según salinidad del estanque."
+        "</p>",
+        unsafe_allow_html=True,
+    )
+
+    col_in, col_out = st.columns([1.1, 1.2], gap="large")
+
+    with col_in:
+        salinidad = st.number_input("Salinidad del agua (g/L o ppt)", min_value=0.0, value=0.0, step=0.5)
+        volumen_estanque = st.number_input("Volumen del estanque (m³)", min_value=0, value=0, step=50)
+        st.markdown("---")
+        ca_medido = st.number_input("Calcio medido Ca²⁺ (mg/L)", min_value=0.0, value=0.0, step=5.0)
+        mg_medido = st.number_input("Magnesio medido Mg²⁺ (mg/L)", min_value=0.0, value=0.0, step=10.0)
+        k_medido = st.number_input("Potasio medido K⁺ (mg/L)", min_value=0.0, value=0.0, step=5.0)
+
+    ca_ideal = salinidad * (400.0 / 35.0)
+    mg_ideal = salinidad * (1272.0 / 35.0)
+    k_ideal = salinidad * (380.0 / 35.0)
+
+    rel_mg_ca = (mg_medido / ca_medido) if ca_medido > 0 else 0.0
+    rel_ca_k = (ca_medido / k_medido) if k_medido > 0 else 0.0
+
+    deficit_ca = max(0.0, ca_ideal - ca_medido)
+    deficit_mg = max(0.0, mg_ideal - mg_medido)
+    deficit_k = max(0.0, k_ideal - k_medido)
+
+    kg_caso4 = (deficit_ca * volumen_estanque) / (1000.0 * 0.232)
+    kg_mgcl2 = (deficit_mg * volumen_estanque) / (1000.0 * 0.119)
+    kg_kcl = (deficit_k * volumen_estanque) / (1000.0 * 0.524)
+
+    with col_out:
+        r1, r2 = st.columns(2)
+        with r1:
+            st.metric(
+                label="Relación Mg : Ca",
+                value=f"{rel_mg_ca:.2f} : 1",
+                delta="Ideal: 3.10 – 3.40",
+            )
+        with r2:
+            st.metric(
+                label="Relación Ca : K",
+                value=f"{rel_ca_k:.2f} : 1",
+                delta="Ideal: ~1.05 : 1",
+            )
+
+        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+        df_iones = pd.DataFrame(
+            {
+                "Ion": ["Calcio (Ca²⁺)", "Magnesio (Mg²⁺)", "Potasio (K⁺)"],
+                "Medido (mg/L)": [round(ca_medido, 1), round(mg_medido, 1), round(k_medido, 1)],
+                "Ideal salinidad (mg/L)": [round(ca_ideal, 1), round(mg_ideal, 1), round(k_ideal, 1)],
+                "Déficit (mg/L)": [round(deficit_ca, 1), round(deficit_mg, 1), round(deficit_k, 1)],
+            }
+        )
+        st.dataframe(df_iones, use_container_width=True, hide_index=True)
+
+        st.markdown("**Dosificación estimada de sales correctoras**")
+        s1, s2, s3 = st.columns(3)
+        with s1:
+            st.metric("Sulfato de calcio", f"{kg_caso4:,.1f} kg")
+        with s2:
+            st.metric("Cloruro de magnesio", f"{kg_mgcl2:,.1f} kg")
+        with s3:
+            st.metric("Cloruro de potasio", f"{kg_kcl:,.1f} kg")
+
+
+# ----------------------------------------------------------------------
+# PÁGINA 4: PATOLOGÍA Y ALIMENTACIÓN
+# ----------------------------------------------------------------------
+elif st.session_state["pagina"] == "Patologia":
+    st.title("Patología y alimentación")
+    st.markdown(
+        "<p style='color:#a3a9b8; margin-bottom:18px;'>"
+        "Cálculo de biomasa viva, ración por toma y lista de verificación clínico-patológica en fresco."
+        "</p>",
+        unsafe_allow_html=True,
+    )
+
+    tab_rac, tab_pat = st.tabs(["Cálculo de biomasa y ración", "Verificación clínica en fresco"])
+
+    with tab_rac:
+        c_left, c_right = st.columns([1, 1.1], gap="large")
+        with c_left:
+            poblacion = st.number_input("Población estimada (organismos)", min_value=0, value=0, step=5000)
+            peso_prom = st.number_input("Peso promedio actual (g)", min_value=0.0, value=0.0, step=0.25)
+            tasa_alim = st.number_input("Tasa de alimentación (% biomasa)", min_value=0.0, value=0.0, step=0.1)
+            tomas_dia = st.number_input("Frecuencia de alimentación (tomas/día)", min_value=1, max_value=12, value=4, step=1)
+
+        biomasa_kg = (poblacion * peso_prom) / 1000.0
+        racion_dia_kg = biomasa_kg * (tasa_alim / 100.0)
+        racion_toma_kg = racion_dia_kg / tomas_dia
+
+        with c_right:
+            st.metric("Biomasa viva total", f"{biomasa_kg:,.2f} kg")
+            st.metric("Ración diaria total", f"{racion_dia_kg:,.2f} kg/día")
+            st.metric(f"Ración por suministro ({tomas_dia} tomas)", f"{racion_toma_kg:,.2f} kg/toma")
+
+    with tab_pat:
+        st.markdown("**Inspección morfológica en fresco**")
+        st.caption("Desmarca los órganos donde observes alteraciones durante el muestreo:")
+
+        chk_hp = st.checkbox("Hepatopáncreas: coloración ámbar normal, túbulos definidos y gotas lipídicas", value=True)
+        chk_br = st.checkbox("Branquias: limpias, sin melanización ni carga excesiva de epibiontes", value=True)
+        chk_in = st.checkbox("Intestino: tracto lleno y continuo, sin fluido amarillento", value=True)
+        chk_cu = st.checkbox("Cutícula y musculatura: exoesqueleto firme y abdomen translúcido", value=True)
+
+        if st.button("Emitir dictamen técnico", type="primary"):
+            if all([chk_hp, chk_br, chk_in, chk_cu]):
+                st.success(
+                    "Dictamen: Organismos sin signos clínicos de alerta. Mantener tabla de alimentación programada."
+                )
+            else:
+                st.error(
+                    "Dictamen: Se detectaron signos clínicos anormales. Reducir ración entre 30% y 50%, "
+                    "revisar parámetros de fondo y remitir muestra fija para diagnóstico."
+                )
