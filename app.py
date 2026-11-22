@@ -1,6 +1,6 @@
+import datetime
 import pandas as pd
 import streamlit as st
-import datetime
 
 # 1. Configuración de página
 st.set_page_config(
@@ -203,7 +203,6 @@ if "ultimo_calculo_neubauer" not in st.session_state:
 
 
 def render_neubauer_svg(c1: int, c2: int, c3: int, c4: int, c5: int) -> str:
-    """Genera el diagrama interactivo de la cámara de Neubauer con densidad visual por cuadrante."""
     max_val = max(c1, c2, c3, c4, c5, 1)
 
     def opacity_for(val: int) -> float:
@@ -227,7 +226,6 @@ def render_neubauer_svg(c1: int, c2: int, c3: int, c4: int, c5: int) -> str:
             )
         return "".join(lines)
 
-    # Coordenadas del plano 300x300 (3x3 bloques de 100x100)
     quads = [
         ("C1", 0, 0, c1, 4, "#38bdf8"),
         ("C2", 200, 0, c2, 4, "#38bdf8"),
@@ -279,7 +277,6 @@ def render_neubauer_svg(c1: int, c2: int, c3: int, c4: int, c5: int) -> str:
 
 
 def build_printable_html(df: pd.DataFrame) -> str:
-    """Genera un documento HTML limpio listo para imprimir o guardar como PDF desde el navegador."""
     rows_html = ""
     for _, row in df.iterrows():
         rows_html += "<tr>" + "".join(f"<td>{str(val)}</td>" for val in row) + "</tr>"
@@ -375,7 +372,6 @@ if st.session_state["pagina"] == "Inicio":
         unsafe_allow_html=True,
     )
 
-    # Fila de métricas clave
     k1, k2, k3 = st.columns(3)
     ultima_conc = (
         f"{st.session_state['ultimo_calculo_neubauer']['conc_esquinas']:,.0f} cél/mL"
@@ -487,41 +483,39 @@ elif st.session_state["pagina"] == "Neubauer":
         col_form, col_vis = st.columns([1.35, 1], gap="large")
 
         with col_form:
-            # Parámetros generales
             st.markdown("**Parámetros de dilución e inóculo**")
-            p1, p2 = st.columns(2)
+            p1, p2, p3 = st.columns(3)
             with p1:
                 factor_dilucion = st.number_input(
-                    "Factor de dilución", min_value=0.0001, value=10.0, step=0.5, format="%.4f"
+                    "Factor de dilución", min_value=0.0001, value=0.0000, step=0.5, format="%.4f"
                 )
             with p2:
                 volumen_objetivo = st.number_input(
-                    "Volumen objetivo (L)", min_value=0.1, value=500.0, step=10.0
+                    "Volumen objetivo", min_value=0.0, value=0.0, step=1.0, format="%.1f"
                 )
+            with p3:
+                unidad_vol = st.selectbox("Unidad de volumen", ["Mililitros (mL)", "Litros (L)", "Toneladas (Ton)"])
 
             st.markdown("---")
-            # Bloque 1: 4 Cuadrantes de las esquinas
             st.markdown("**Cuadrantes de las esquinas (16 subcuadros cada uno)**")
             e1, e2 = st.columns(2)
             with e1:
-                c1 = st.number_input("Cuadrante 1 (Superior izquierdo)", min_value=0, value=60, step=1)
-                c3 = st.number_input("Cuadrante 3 (Inferior izquierdo)", min_value=0, value=60, step=1)
+                c1 = st.number_input("Cuadrante 1 (Superior izquierdo)", min_value=0, value=0, step=1)
+                c3 = st.number_input("Cuadrante 3 (Inferior izquierdo)", min_value=0, value=0, step=1)
             with e2:
-                c2 = st.number_input("Cuadrante 2 (Superior derecho)", min_value=0, value=60, step=1)
-                c4 = st.number_input("Cuadrante 4 (Inferior derecho)", min_value=0, value=60, step=1)
+                c2 = st.number_input("Cuadrante 2 (Superior derecho)", min_value=0, value=0, step=1)
+                c4 = st.number_input("Cuadrante 4 (Inferior derecho)", min_value=0, value=0, step=1)
 
             st.markdown("---")
-            # Bloque 2: Cuadrante central aparte (Cuadrante 5 - 25 cuadros)
             st.markdown("**Cuadrante central (Cuadrante 5 · 25 subcuadros)**")
             st.caption(
-                "Apartado independiente para el cuadrante central de 25 cuadros (usado habitualmente en microalgas o células pequeñas)."
+                "Apartado independiente para el cuadrante central de 25 cuadros."
             )
             c5 = st.number_input(
                 "Cuadrante 5 (Central · 25 cuadros)", min_value=0, value=0, step=1
             )
 
             st.markdown("---")
-            # Bloque 3: Viabilidad celular
             st.markdown("**Viabilidad celular diferencial (opcional)**")
             v1, v2 = st.columns(2)
             with v1:
@@ -531,13 +525,24 @@ elif st.session_state["pagina"] == "Neubauer":
 
             calcular_btn = st.button("Calcular concentración y actualizar retícula", type="primary", use_container_width=True)
 
-        # Cálculos en tiempo real para mantener sincronizado el gráfico SVG y las métricas
+        # Cálculos
         promedio_esquinas = sum([c1, c2, c3, c4]) / 4.0
         constante_neubauer = 10000
         conc_esquinas = promedio_esquinas * factor_dilucion * constante_neubauer
         conc_central = c5 * factor_dilucion * constante_neubauer
-        total_inoculo_mL = volumen_objetivo * 1000.0
-        celulas_totales = conc_esquinas * total_inoculo_mL
+        
+        # Conversión de volumen objetivo a mL para calcular carga total
+        if "Litros" in unidad_vol:
+            volumen_mL = volumen_objetivo * 1000.0
+            unidad_label = "L"
+        elif "Toneladas" in unidad_vol:
+            volumen_mL = volumen_objetivo * 1000000.0
+            unidad_label = "Ton"
+        else:
+            volumen_mL = volumen_objetivo
+            unidad_label = "mL"
+            
+        celulas_totales = conc_esquinas * volumen_mL
 
         total_viab = vivas + muertas
         viabilidad_pct = (vivas / total_viab * 100.0) if total_viab > 0 else None
@@ -551,6 +556,7 @@ elif st.session_state["pagina"] == "Neubauer":
                 "c5": c5,
                 "dilucion": factor_dilucion,
                 "volumen": volumen_objetivo,
+                "unidad_vol": unidad_vol,
                 "conc_esquinas": conc_esquinas,
                 "conc_central": conc_central,
                 "viabilidad": viabilidad_pct,
@@ -560,7 +566,6 @@ elif st.session_state["pagina"] == "Neubauer":
             }
 
         with col_vis:
-            # Gráfico interactivo de la cámara de Neubauer
             st.markdown(render_neubauer_svg(c1, c2, c3, c4, c5), unsafe_allow_html=True)
 
             st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
@@ -575,7 +580,7 @@ elif st.session_state["pagina"] == "Neubauer":
                 delta=f"Lectura directa C5: {c5} cél",
             )
             st.metric(
-                label=f"Carga total en {volumen_objetivo:,.1f} L",
+                label=f"Carga total en {volumen_objetivo:,.2f} {unidad_label}",
                 value=f"{celulas_totales:,.0f} cél",
             )
 
@@ -627,6 +632,7 @@ elif st.session_state["pagina"] == "Neubauer":
                     "C1–C4 (16c)": f"{datos['c1']}, {datos['c2']}, {datos['c3']}, {datos['c4']}",
                     "C5 Central (25c)": datos["c5"],
                     "Dilución": f"{datos['dilucion']}x",
+                    "Vol. Objetivo": f"{datos['volumen']} {datos['unidad_vol'].split()[0]}",
                     "Conc. Esquinas (cél/mL)": f"{datos['conc_esquinas']:,.0f}",
                     "Conc. C5 (cél/mL)": f"{datos['conc_central']:,.0f}",
                     "Carga Total (cél)": f"{datos['celulas_totales']:,.0f}",
@@ -643,7 +649,6 @@ elif st.session_state["pagina"] == "Neubauer":
             df_bitacora = pd.DataFrame(st.session_state["bitacora_campo"])
             st.dataframe(df_bitacora, use_container_width=True, hide_index=True)
 
-            # Acciones de exportación y vaciado
             exp1, exp2, exp3 = st.columns([1, 1, 1])
             with exp1:
                 csv_bytes = df_bitacora.to_csv(index=False).encode("utf-8-sig")
@@ -693,7 +698,7 @@ elif st.session_state["pagina"] == "Balance":
         mg_medido = st.number_input("Magnesio medido Mg²⁺ (mg/L)", min_value=0.0, value=980.0, step=10.0)
         k_medido = st.number_input("Potasio medido K⁺ (mg/L)", min_value=0.0, value=210.0, step=5.0)
 
-    # Valores ideales proporcionales a salinidad (referencia agua de mar 35 ppt: Ca 400, Mg 1272, K 380)
+    # Cálculos Iónicos
     ca_ideal = salinidad * (400.0 / 35.0)
     mg_ideal = salinidad * (1272.0 / 35.0)
     k_ideal = salinidad * (380.0 / 35.0)
@@ -701,14 +706,13 @@ elif st.session_state["pagina"] == "Balance":
     rel_mg_ca = (mg_medido / ca_medido) if ca_medido > 0 else 0.0
     rel_ca_k = (ca_medido / k_medido) if k_medido > 0 else 0.0
 
-    # Déficits y sales correctivas (kg por m³)
     deficit_ca = max(0.0, ca_ideal - ca_medido)
     deficit_mg = max(0.0, mg_ideal - mg_medido)
     deficit_k = max(0.0, k_ideal - k_medido)
 
-    kg_caso4 = (deficit_ca * volumen_estanque) / (1000.0 * 0.232)  # Sulfato de calcio agrícola (~23.2% Ca)
-    kg_mgcl2 = (deficit_mg * volumen_estanque) / (1000.0 * 0.119)  # Cloruro de magnesio hexahidratado (~11.9% Mg)
-    kg_kcl = (deficit_k * volumen_estanque) / (1000.0 * 0.524)    # Cloruro de potasio (~52.4% K)
+    kg_caso4 = (deficit_ca * volumen_estanque) / (1000.0 * 0.232)
+    kg_mgcl2 = (deficit_mg * volumen_estanque) / (1000.0 * 0.119)
+    kg_kcl = (deficit_k * volumen_estanque) / (1000.0 * 0.524)
 
     with col_out:
         r1, r2 = st.columns(2)
