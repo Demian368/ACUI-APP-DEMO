@@ -19,7 +19,7 @@ st.markdown(
         color: #F8FAFC;
         font-family: 'Inter', sans-serif;
     }
-
+    
     div.stButton > button {
         width: 100%;
         border-radius: 8px;
@@ -30,7 +30,7 @@ st.markdown(
         border: 1px solid #334155;
         transition: all 0.2s ease;
     }
-
+    
     div.stButton > button:hover {
         background-color: #334155;
         border-color: #38BDF8;
@@ -44,7 +44,7 @@ st.markdown(
         border-left: 4px solid #0EA5E9;
         margin-bottom: 10px;
     }
-
+    
     /* Cifras tabulares para datos técnicos */
     .jst-number {
         font-family: monospace;
@@ -143,38 +143,55 @@ elif st.session_state["pagina"] == "Neubauer":
           "Volumen de Inóculo (Litros)", min_value=1.0, value=500.0, step=10.0
       )
 
-    st.markdown("### Conteo de Cuadrantes (Hemocitómetro)")
-    c1 = st.number_input(
-        "Cuadrante 1 (Esquina Superior Izq)", min_value=0, value=45, step=1
+    st.markdown("---")
+    st.markdown(
+        "### 📐 Conteo de Cuadrantes de las Esquinas (16 Sub-cuadros c/u)"
     )
-    c2 = st.number_input(
-        "Cuadrante 2 (Esquina Superior Der)", min_value=0, value=50, step=1
-    )
-    c3 = st.number_input("Cuadrante 3 (Centro)", min_value=0, value=48, step=1)
-    c4 = st.number_input(
-        "Cuadrante 4 (Esquina Inferior Izq)", min_value=0, value=52, step=1
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+      c1 = st.number_input(
+          "Cuadrante 1 (Sup. Izq)", min_value=0, value=45, step=1
+      )
+      c2 = st.number_input(
+          "Cuadrante 2 (Sup. Der)", min_value=0, value=50, step=1
+      )
+    with col_c2:
+      c3 = st.number_input(
+          "Cuadrante 3 (Inf. Izq)", min_value=0, value=48, step=1
+      )
+      c4 = st.number_input(
+          "Cuadrante 4 (Inf. Der)", min_value=0, value=52, step=1
+      )
+
+    st.markdown("---")
+    st.markdown("### 🎯 Cuadrante Central (Cuadrante 5 - 25 Sub-cuadros)")
+    st.info(
+        "Nota técnica: Este cuadrante central se subdivide habitualmente en 25"
+        " cuadros para conteos de alta densidad."
     )
     c5 = st.number_input(
-        "Cuadrante 5 (Esquina Inferior Der)", min_value=0, value=47, step=1
+        "Cuadrante 5 (Central)", min_value=0, value=125, step=1
     )
 
-    st.markdown("### Evaluación de Viabilidad Celular")
-    vivas = st.number_input(
-        "Células Vivas observadas", min_value=0, value=202, step=1
-    )
-    muertas = st.number_input(
-        "Células Muertas observadas", min_value=0, value=40, step=1
-    )
+    st.markdown("---")
+    st.markdown("### 🔬 Evaluación de Viabilidad Celular")
+    col_v1, col_v2 = st.columns(2)
+    with col_v1:
+      vivas = st.number_input("Células Vivas observadas", min_value=0, value=202, step=1)
+    with col_v2:
+      muertas = st.number_input("Células Muertas observadas", min_value=0, value=40, step=1)
 
     if st.button("Ejecutar Cálculo Hematológico"):
-      conteos = [c1, c2, c3, c4, c5]
-      promedio = sum(conteos) / len(conteos)
+      # Promedio basado en los 4 cuadrantes de esquina
+      promedio_esquinas = sum([c1, c2, c3, c4]) / 4
       constante_neubauer = 10000
-      concentracion = promedio * factor_dilucion * constante_neubauer
+      concentracion = promedio_esquinas * factor_dilucion * constante_neubauer
       volumen_total_celulas = concentracion * volumen_objetivo
 
+      st.markdown("### Resultados del Análisis")
       st.metric(
-          label="Concentración Estimada", value=f"{concentracion:,.0f} cél/mL"
+          label="Concentración Estimada (Base Cuadrantes Esquina)",
+          value=f"{concentracion:,.0f} cél/mL",
       )
       st.metric(
           label="Carga Celular Total en Volumen Objetivo",
@@ -327,7 +344,7 @@ elif st.session_state["pagina"] == "Patologia":
         step=10000,
     )
     peso_promedio = st.number_input(
-        "Peso Promedio Actual (Gramos)", min_value=0.1, value=12.5, step=0.5
+        "Peso Promedio Actual (Grams)", min_value=0.1, value=12.5, step=0.5
     )
     factor_conversion = st.number_input(
         "Tasa de Alimentación (% Biomasa)", min_value=0.5, value=2.5, step=0.1
