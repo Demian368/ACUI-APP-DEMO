@@ -3,25 +3,26 @@ import streamlit as st
 # Configuración de página
 st.set_page_config(page_title="AquiApp Integral", layout="wide")
 
-# Estilos personalizados con paleta armoniosa
+# Estilos corregidos: Fondo azul marino y texto blanco
 st.markdown("""
     <style>
     /* Fondo general de la aplicación */
     div.stApp {
-        background-color: #f4f7f6;
+        background-color: #0A192F;
     }
     
-    /* Títulos principales */
+    /* Títulos y textos generales */
+    h1, h2, h3, h4, h5, h6, p, div, span {
+        color: #FFFFFF !important;
+    }
+    
     .title-text {
-        color: #0A2540;
         text-align: center;
         font-weight: 800;
         padding-bottom: 5px;
     }
     
-    /* Subtítulos */
     .sub-text {
-        color: #20639B;
         text-align: center;
         padding-bottom: 20px;
     }
@@ -31,24 +32,22 @@ st.markdown("""
         width: 100%;
         border-radius: 12px;
         height: 5.5em;
-        background-color: #20639B;
-        color: white;
+        background-color: #172A45;
+        color: #64FFDA !important;
         font-weight: bold;
         font-size: 18px;
-        border: none;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        transition: background-color 0.3s ease;
+        border: 1px solid #64FFDA;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     }
     
     div.stButton > button:hover {
-        background-color: #173F5F;
-        color: #FFFFFF;
+        background-color: #233554;
+        color: #FFFFFF !important;
     }
-    
-    /* Estilo para botones de acción secundaria o volver */
-    div.stDownloadButton > button, div.stFormSubmitButton > button {
-        background-color: #ED553B;
-        color: white;
+
+    /* Ajuste de tablas y métricas para el fondo oscuro */
+    [data-testid="stMetricValue"] {
+        color: #FFFFFF !important;
     }
     </style>
 """, unsafe_allow_html=True)
