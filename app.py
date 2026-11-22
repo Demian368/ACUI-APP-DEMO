@@ -1,7 +1,6 @@
-import datetime
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
+import datetime
 
 # 1. Configuración de página
 st.set_page_config(
@@ -283,7 +282,7 @@ def build_printable_html(df: pd.DataFrame) -> str:
     """Genera un documento HTML limpio listo para imprimir o guardar como PDF desde el navegador."""
     rows_html = ""
     for _, row in df.iterrows():
-        rows_html += "<tr>" + "".join(f"<td>{val}</td>" for val in row) + "</tr>"
+        rows_html += "<tr>" + "".join(f"<td>{str(val)}</td>" for val in row) + "</tr>"
     headers_html = "".join(f"<th>{col}</th>" for col in df.columns)
     fecha_emision = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
@@ -493,7 +492,7 @@ elif st.session_state["pagina"] == "Neubauer":
             p1, p2 = st.columns(2)
             with p1:
                 factor_dilucion = st.number_input(
-                    "Factor de dilución", min_value=1.0, value=10.0, step=0.5
+                    "Factor de dilución", min_value=0.0001, value=10.0, step=0.5, format="%.4f"
                 )
             with p2:
                 volumen_objetivo = st.number_input(
@@ -505,11 +504,11 @@ elif st.session_state["pagina"] == "Neubauer":
             st.markdown("**Cuadrantes de las esquinas (16 subcuadros cada uno)**")
             e1, e2 = st.columns(2)
             with e1:
-                c1 = st.number_input("Cuadrante 1 (Superior izquierdo)", min_value=0, value=45, step=1)
-                c3 = st.number_input("Cuadrante 3 (Inferior izquierdo)", min_value=0, value=48, step=1)
+                c1 = st.number_input("Cuadrante 1 (Superior izquierdo)", min_value=0, value=60, step=1)
+                c3 = st.number_input("Cuadrante 3 (Inferior izquierdo)", min_value=0, value=60, step=1)
             with e2:
-                c2 = st.number_input("Cuadrante 2 (Superior derecho)", min_value=0, value=50, step=1)
-                c4 = st.number_input("Cuadrante 4 (Inferior derecho)", min_value=0, value=52, step=1)
+                c2 = st.number_input("Cuadrante 2 (Superior derecho)", min_value=0, value=60, step=1)
+                c4 = st.number_input("Cuadrante 4 (Inferior derecho)", min_value=0, value=60, step=1)
 
             st.markdown("---")
             # Bloque 2: Cuadrante central aparte (Cuadrante 5 - 25 cuadros)
@@ -518,7 +517,7 @@ elif st.session_state["pagina"] == "Neubauer":
                 "Apartado independiente para el cuadrante central de 25 cuadros (usado habitualmente en microalgas o células pequeñas)."
             )
             c5 = st.number_input(
-                "Cuadrante 5 (Central · 25 cuadros)", min_value=0, value=125, step=1
+                "Cuadrante 5 (Central · 25 cuadros)", min_value=0, value=0, step=1
             )
 
             st.markdown("---")
@@ -526,9 +525,9 @@ elif st.session_state["pagina"] == "Neubauer":
             st.markdown("**Viabilidad celular diferencial (opcional)**")
             v1, v2 = st.columns(2)
             with v1:
-                vivas = st.number_input("Células vivas", min_value=0, value=202, step=1)
+                vivas = st.number_input("Células vivas", min_value=0, value=0, step=1)
             with v2:
-                muertas = st.number_input("Células muertas", min_value=0, value=40, step=1)
+                muertas = st.number_input("Células muertas", min_value=0, value=0, step=1)
 
             calcular_btn = st.button("Calcular concentración y actualizar retícula", type="primary", use_container_width=True)
 
@@ -555,6 +554,9 @@ elif st.session_state["pagina"] == "Neubauer":
                 "conc_esquinas": conc_esquinas,
                 "conc_central": conc_central,
                 "viabilidad": viabilidad_pct,
+                "celulas_totales": celulas_totales,
+                "vivas": vivas,
+                "muertas": muertas
             }
 
         with col_vis:
@@ -574,7 +576,7 @@ elif st.session_state["pagina"] == "Neubauer":
             )
             st.metric(
                 label=f"Carga total en {volumen_objetivo:,.1f} L",
-                value=f"{celulas_totales:.2e} cél",
+                value=f"{celulas_totales:,.0f} cél",
             )
 
             if viabilidad_pct is not None:
@@ -627,6 +629,7 @@ elif st.session_state["pagina"] == "Neubauer":
                     "Dilución": f"{datos['dilucion']}x",
                     "Conc. Esquinas (cél/mL)": f"{datos['conc_esquinas']:,.0f}",
                     "Conc. C5 (cél/mL)": f"{datos['conc_central']:,.0f}",
+                    "Carga Total (cél)": f"{datos['celulas_totales']:,.0f}",
                     "Viabilidad": viab_str,
                     "Observaciones": notas_muestra.strip() or "—",
                 }
