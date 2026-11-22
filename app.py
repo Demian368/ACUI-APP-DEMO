@@ -195,7 +195,6 @@ if "bitacora_campo" not in st.session_state:
 if "ultimo_calculo_neubauer" not in st.session_state:
     st.session_state["ultimo_calculo_neubauer"] = None
 
-# Valores por defecto tipados estrictamente
 NEUBAUER_DEFAULTS = {
     "neubauer_dilucion": 1.0,
     "neubauer_volumen": 0.0,
@@ -513,7 +512,6 @@ elif st.session_state["pagina"] == "Neubauer":
                 factor_dilucion = st.number_input(
                     "Factor de dilución",
                     min_value=0.0,
-                    value=float(st.session_state["neubauer_dilucion"]),
                     step=0.5,
                     format="%.4f",
                     key="neubauer_dilucion",
@@ -522,7 +520,6 @@ elif st.session_state["pagina"] == "Neubauer":
                 volumen_objetivo = st.number_input(
                     "Volumen objetivo",
                     min_value=0.0,
-                    value=float(st.session_state["neubauer_volumen"]),
                     step=1.0,
                     format="%.1f",
                     key="neubauer_volumen",
@@ -541,14 +538,12 @@ elif st.session_state["pagina"] == "Neubauer":
                 c1 = st.number_input(
                     "Cuadrante 1 (Superior izquierdo)",
                     min_value=0,
-                    value=int(st.session_state["neubauer_c1"]),
                     step=1,
                     key="neubauer_c1",
                 )
                 c3 = st.number_input(
                     "Cuadrante 3 (Inferior izquierdo)",
                     min_value=0,
-                    value=int(st.session_state["neubauer_c3"]),
                     step=1,
                     key="neubauer_c3",
                 )
@@ -556,14 +551,12 @@ elif st.session_state["pagina"] == "Neubauer":
                 c2 = st.number_input(
                     "Cuadrante 2 (Superior derecho)",
                     min_value=0,
-                    value=int(st.session_state["neubauer_c2"]),
                     step=1,
                     key="neubauer_c2",
                 )
                 c4 = st.number_input(
                     "Cuadrante 4 (Inferior derecho)",
                     min_value=0,
-                    value=int(st.session_state["neubauer_c4"]),
                     step=1,
                     key="neubauer_c4",
                 )
@@ -574,7 +567,6 @@ elif st.session_state["pagina"] == "Neubauer":
             c5 = st.number_input(
                 "Cuadrante 5 (Central · 25 cuadros)",
                 min_value=0,
-                value=int(st.session_state["neubauer_c5"]),
                 step=1,
                 key="neubauer_c5",
             )
@@ -586,7 +578,6 @@ elif st.session_state["pagina"] == "Neubauer":
                 vivas = st.number_input(
                     "Células vivas",
                     min_value=0,
-                    value=int(st.session_state["neubauer_vivas"]),
                     step=1,
                     key="neubauer_vivas",
                 )
@@ -594,7 +585,6 @@ elif st.session_state["pagina"] == "Neubauer":
                 muertas = st.number_input(
                     "Células muertas",
                     min_value=0,
-                    value=int(st.session_state["neubauer_muertas"]),
                     step=1,
                     key="neubauer_muertas",
                 )
@@ -607,15 +597,12 @@ elif st.session_state["pagina"] == "Neubauer":
                     use_container_width=True,
                 )
             with b_reset:
-                limpiar_btn = st.button(
+                st.button(
                     "Limpiar / Comenzar de nuevo",
                     type="secondary",
                     use_container_width=True,
+                    on_click=reset_neubauer_inputs,
                 )
-
-            if limpiar_btn:
-                reset_neubauer_inputs()
-                st.rerun()
 
         if "Litros" in unidad_vol:
             volumen_mL = volumen_objetivo * 1000.0
@@ -777,7 +764,4 @@ elif st.session_state["pagina"] == "Balance":
         unsafe_allow_html=True,
     )
 
-    col_in, col_out = st.columns([1.1, 1.2], gap="large")
-
-    with col_in:
-        salinidad = st.number_input("Salinidad del agua (
+    col_in, col_out = st
