@@ -1,6 +1,6 @@
-import streamlit as st
-import pandas as pd
 import datetime
+import pandas as pd
+import streamlit as st
 
 # 1. Configuración de página
 st.set_page_config(
@@ -195,12 +195,24 @@ if "bitacora_campo" not in st.session_state:
 if "ultimo_calculo_neubauer" not in st.session_state:
     st.session_state["ultimo_calculo_neubauer"] = None
 
-# Claves para el formulario de Neubauer para permitir reseteo
-neubauer_keys = [
-    "neubauer_dilucion", "neubauer_volumen", "neubauer_unidad",
-    "neubauer_c1", "neubauer_c2", "neubauer_c3", "neubauer_c4", "neubauer_c5",
-    "neubauer_vivas", "neubauer_muertas"
-]
+# Valores por defecto tipados estrictamente
+NEUBAUER_DEFAULTS = {
+    "neubauer_dilucion": 1.0,
+    "neubauer_volumen": 0.0,
+    "neubauer_unidad": "Mililitros (mL)",
+    "neubauer_c1": 0,
+    "neubauer_c2": 0,
+    "neubauer_c3": 0,
+    "neubauer_c4": 0,
+    "neubauer_c5": 0,
+    "neubauer_vivas": 0,
+    "neubauer_muertas": 0,
+}
+
+for k, default_val in NEUBAUER_DEFAULTS.items():
+    if k not in st.session_state:
+        st.session_state[k] = default_val
+
 
 def reset_neubauer_inputs():
     st.session_state["neubauer_dilucion"] = 1.0
@@ -213,13 +225,6 @@ def reset_neubauer_inputs():
     st.session_state["neubauer_vivas"] = 0
     st.session_state["neubauer_muertas"] = 0
 
-# Inicializar valores de Neubauer si no existen
-for key in neubauer_keys:
-    if key not in st.session_state:
-        if "dilucion" in key:
-            st.session_state[key] = 1.0
-        else:
-            st.session_state[key] = 0
 
 def render_neubauer_svg(c1: int, c2: int, c3: int, c4: int, c5: int) -> str:
     max_val = max(c1, c2, c3, c4, c5, 1)
@@ -294,6 +299,7 @@ def render_neubauer_svg(c1: int, c2: int, c3: int, c4: int, c5: int) -> str:
     """
     return svg
 
+
 def build_printable_html(df: pd.DataFrame) -> str:
     rows_html = ""
     for _, row in df.iterrows():
@@ -336,6 +342,7 @@ def build_printable_html(df: pd.DataFrame) -> str:
 </body>
 </html>"""
 
+
 # 4. Barra lateral persistente
 with st.sidebar:
     st.markdown(
@@ -374,6 +381,7 @@ with st.sidebar:
         f"<span style='font-family:JetBrains Mono,monospace; color:#eef0f5;'>{len(st.session_state['bitacora_campo'])}</span></div>",
         unsafe_allow_html=True,
     )
+
 
 # ----------------------------------------------------------------------
 # PÁGINA 1: PANEL DE CONTROL GENERAL
@@ -480,6 +488,7 @@ if st.session_state["pagina"] == "Inicio":
             st.session_state["pagina"] = "Patologia"
             st.rerun()
 
+
 # ----------------------------------------------------------------------
 # PÁGINA 2: CÁMARA DE NEUBAUER
 # ----------------------------------------------------------------------
@@ -502,41 +511,94 @@ elif st.session_state["pagina"] == "Neubauer":
             p1, p2, p3 = st.columns(3)
             with p1:
                 factor_dilucion = st.number_input(
-                    "Factor de dilución", min_value=0.0, value=st.session_state.get("neubauer_dilucion", 1.0), step=0.5, format="%.4f", key="neubauer_dilucion"
+                    "Factor de dilución",
+                    min_value=0.0,
+                    value=float(st.session_state["neubauer_dilucion"]),
+                    step=0.5,
+                    format="%.4f",
+                    key="neubauer_dilucion",
                 )
             with p2:
                 volumen_objetivo = st.number_input(
-                    "Volumen objetivo", min_value=0.0, value=st.session_state.get("neubauer_volumen", 0.0), step=1.0, format="%.1f", key="neubauer_volumen"
+                    "Volumen objetivo",
+                    min_value=0.0,
+                    value=float(st.session_state["neubauer_volumen"]),
+                    step=1.0,
+                    format="%.1f",
+                    key="neubauer_volumen",
                 )
             with p3:
                 unidad_vol = st.selectbox(
-                    "Unidad de volumen", ["Mililitros (mL)", "Litros (L)", "Toneladas (Ton)"], key="neubauer_unidad"
+                    "Unidad de volumen",
+                    ["Mililitros (mL)", "Litros (L)", "Toneladas (Ton)"],
+                    key="neubauer_unidad",
                 )
 
             st.markdown("---")
             st.markdown("**Cuadrantes de las esquinas (16 subcuadros cada uno)**")
             e1, e2 = st.columns(2)
             with e1:
-                c1 = st.number_input("Cuadrante 1 (Superior izquierdo)", min_value=0, value=st.session_state.get("neubauer_c1", 0), step=1, key="neubauer_c1")
-                c3 = st.number_input("Cuadrante 3 (Inferior izquierdo)", min_value=0, value=st.session_state.get("neubauer_c3", 0), step=1, key="neubauer_c3")
+                c1 = st.number_input(
+                    "Cuadrante 1 (Superior izquierdo)",
+                    min_value=0,
+                    value=int(st.session_state["neubauer_c1"]),
+                    step=1,
+                    key="neubauer_c1",
+                )
+                c3 = st.number_input(
+                    "Cuadrante 3 (Inferior izquierdo)",
+                    min_value=0,
+                    value=int(st.session_state["neubauer_c3"]),
+                    step=1,
+                    key="neubauer_c3",
+                )
             with e2:
-                c2 = st.number_input("Cuadrante 2 (Superior derecho)", min_value=0, value=st.session_state.get("neubauer_c2", 0), step=1, key="neubauer_c2")
-                c4 = st.number_input("Cuadrante 4 (Inferior derecho)", min_value=0, value=st.session_state.get("neubauer_c4", 0), step=1, key="neubauer_c4")
+                c2 = st.number_input(
+                    "Cuadrante 2 (Superior derecho)",
+                    min_value=0,
+                    value=int(st.session_state["neubauer_c2"]),
+                    step=1,
+                    key="neubauer_c2",
+                )
+                c4 = st.number_input(
+                    "Cuadrante 4 (Inferior derecho)",
+                    min_value=0,
+                    value=int(st.session_state["neubauer_c4"]),
+                    step=1,
+                    key="neubauer_c4",
+                )
 
             st.markdown("---")
             st.markdown("**Cuadrante central (Cuadrante 5 · 25 subcuadros)**")
             st.caption("Apartado independiente para el cuadrante central de 25 cuadros.")
-            c5 = st.number_input("Cuadrante 5 (Central · 25 cuadros)", min_value=0, value=st.session_state.get("neubauer_c5", 0), step=1, key="neubauer_c5")
+            c5 = st.number_input(
+                "Cuadrante 5 (Central · 25 cuadros)",
+                min_value=0,
+                value=int(st.session_state["neubauer_c5"]),
+                step=1,
+                key="neubauer_c5",
+            )
 
             st.markdown("---")
             st.markdown("**Viabilidad celular diferencial (opcional)**")
             v1, v2 = st.columns(2)
             with v1:
-                vivas = st.number_input("Células vivas", min_value=0, value=st.session_state.get("neubauer_vivas", 0), step=1, key="neubauer_vivas")
+                vivas = st.number_input(
+                    "Células vivas",
+                    min_value=0,
+                    value=int(st.session_state["neubauer_vivas"]),
+                    step=1,
+                    key="neubauer_vivas",
+                )
             with v2:
-                muertas = st.number_input("Células muertas", min_value=0, value=st.session_state.get("neubauer_muertas", 0), step=1, key="neubauer_muertas")
+                muertas = st.number_input(
+                    "Células muertas",
+                    min_value=0,
+                    value=int(st.session_state["neubauer_muertas"]),
+                    step=1,
+                    key="neubauer_muertas",
+                )
 
-            # Botones de Acción
             b_calc, b_reset = st.columns(2)
             with b_calc:
                 calcular_btn = st.button(
@@ -555,7 +617,6 @@ elif st.session_state["pagina"] == "Neubauer":
                 reset_neubauer_inputs()
                 st.rerun()
 
-        # Conversión de volumen y etiqueta siempre definida
         if "Litros" in unidad_vol:
             volumen_mL = volumen_objetivo * 1000.0
             unidad_label = "L"
@@ -703,6 +764,7 @@ elif st.session_state["pagina"] == "Neubauer":
         else:
             st.info("No hay registros almacenados todavía. Guarda un conteo desde el formulario superior.")
 
+
 # ----------------------------------------------------------------------
 # PÁGINA 3: BALANCE IÓNICO
 # ----------------------------------------------------------------------
@@ -718,110 +780,4 @@ elif st.session_state["pagina"] == "Balance":
     col_in, col_out = st.columns([1.1, 1.2], gap="large")
 
     with col_in:
-        salinidad = st.number_input("Salinidad del agua (g/L o ppt)", min_value=0.0, value=0.0, step=0.5)
-        volumen_estanque = st.number_input("Volumen del estanque (m³)", min_value=0, value=0, step=50)
-        st.markdown("---")
-        ca_medido = st.number_input("Calcio medido Ca²⁺ (mg/L)", min_value=0.0, value=0.0, step=5.0)
-        mg_medido = st.number_input("Magnesio medido Mg²⁺ (mg/L)", min_value=0.0, value=0.0, step=10.0)
-        k_medido = st.number_input("Potasio medido K⁺ (mg/L)", min_value=0.0, value=0.0, step=5.0)
-
-    ca_ideal = salinidad * (400.0 / 35.0)
-    mg_ideal = salinidad * (1272.0 / 35.0)
-    k_ideal = salinidad * (380.0 / 35.0)
-
-    rel_mg_ca = (mg_medido / ca_medido) if ca_medido > 0 else 0.0
-    rel_ca_k = (ca_medido / k_medido) if k_medido > 0 else 0.0
-
-    deficit_ca = max(0.0, ca_ideal - ca_medido)
-    deficit_mg = max(0.0, mg_ideal - mg_medido)
-    deficit_k = max(0.0, k_ideal - k_medido)
-
-    kg_caso4 = (deficit_ca * volumen_estanque) / (1000.0 * 0.232)
-    kg_mgcl2 = (deficit_mg * volumen_estanque) / (1000.0 * 0.119)
-    kg_kcl = (deficit_k * volumen_estanque) / (1000.0 * 0.524)
-
-    with col_out:
-        r1, r2 = st.columns(2)
-        with r1:
-            st.metric(
-                label="Relación Mg : Ca",
-                value=f"{rel_mg_ca:.2f} : 1",
-                delta="Ideal: 3.10 – 3.40",
-            )
-        with r2:
-            st.metric(
-                label="Relación Ca : K",
-                value=f"{rel_ca_k:.2f} : 1",
-                delta="Ideal: ~1.05 : 1",
-            )
-
-        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-        df_iones = pd.DataFrame(
-            {
-                "Ion": ["Calcio (Ca²⁺)", "Magnesio (Mg²⁺)", "Potasio (K⁺)"],
-                "Medido (mg/L)": [round(ca_medido, 1), round(mg_medido, 1), round(k_medido, 1)],
-                "Ideal salinidad (mg/L)": [round(ca_ideal, 1), round(mg_ideal, 1), round(k_ideal, 1)],
-                "Déficit (mg/L)": [round(deficit_ca, 1), round(deficit_mg, 1), round(deficit_k, 1)],
-            }
-        )
-        st.dataframe(df_iones, use_container_width=True, hide_index=True)
-
-        st.markdown("**Dosificación estimada de sales correctoras**")
-        s1, s2, s3 = st.columns(3)
-        with s1:
-            st.metric("Sulfato de calcio", f"{kg_caso4:,.1f} kg")
-        with s2:
-            st.metric("Cloruro de magnesio", f"{kg_mgcl2:,.1f} kg")
-        with s3:
-            st.metric("Cloruro de potasio", f"{kg_kcl:,.1f} kg")
-
-# ----------------------------------------------------------------------
-# PÁGINA 4: PATOLOGÍA Y ALIMENTACIÓN
-# ----------------------------------------------------------------------
-elif st.session_state["pagina"] == "Patologia":
-    st.title("Patología y alimentación")
-    st.markdown(
-        "<p style='color:#a3a9b8; margin-bottom:18px;'>"
-        "Cálculo de biomasa viva, ración por toma y lista de verificación clínico-patológica en fresco."
-        "</p>",
-        unsafe_allow_html=True,
-    )
-
-    tab_rac, tab_pat = st.tabs(["Cálculo de biomasa y ración", "Verificación clínica en fresco"])
-
-    with tab_rac:
-        c_left, c_right = st.columns([1, 1.1], gap="large")
-        with c_left:
-            poblacion = st.number_input("Población estimada (organismos)", min_value=0, value=0, step=5000)
-            peso_prom = st.number_input("Peso promedio actual (g)", min_value=0.0, value=0.0, step=0.25)
-            tasa_alim = st.number_input("Tasa de alimentación (% biomasa)", min_value=0.0, value=0.0, step=0.1)
-            tomas_dia = st.number_input("Frecuencia de alimentación (tomas/día)", min_value=1, max_value=12, value=4, step=1)
-
-        biomasa_kg = (poblacion * peso_prom) / 1000.0
-        racion_dia_kg = biomasa_kg * (tasa_alim / 100.0)
-        racion_toma_kg = racion_dia_kg / tomas_dia
-
-        with c_right:
-            st.metric("Biomasa viva total", f"{biomasa_kg:,.2f} kg")
-            st.metric("Ración diaria total", f"{racion_dia_kg:,.2f} kg/día")
-            st.metric(f"Ración por suministro ({tomas_dia} tomas)", f"{racion_toma_kg:,.2f} kg/toma")
-
-    with tab_pat:
-        st.markdown("**Inspección morfológica en fresco**")
-        st.caption("Desmarca los órganos donde observes alteraciones durante el muestreo:")
-
-        chk_hp = st.checkbox("Hepatopáncreas: coloración ámbar normal, túbulos definidos y gotas lipídicas", value=True)
-        chk_br = st.checkbox("Branquias: limpias, sin melanización ni carga excesiva de epibiontes", value=True)
-        chk_in = st.checkbox("Intestino: tracto lleno y continuo, sin fluido amarillento", value=True)
-        chk_cu = st.checkbox("Cutícula y musculatura: exoesqueleto firme y abdomen translúcido", value=True)
-
-        if st.button("Emitir dictamen técnico", type="primary"):
-            if all([chk_hp, chk_br, chk_in, chk_cu]):
-                st.success(
-                    "Dictamen: Organismos sin signos clínicos de alerta. Mantener tabla de alimentación programada."
-                )
-            else:
-                st.error(
-                    "Dictamen: Se detectaron signos clínicos anormales. Reducir ración entre 30% y 50%, "
-                    "revisar parámetros de fondo y remitir muestra fija para diagnóstico."
-                )
+        salinidad = st.number_input("Salinidad del agua (
