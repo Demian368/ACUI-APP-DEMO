@@ -1,4 +1,5 @@
 import datetime
+import io
 import pandas as pd
 import streamlit as st
 
@@ -342,6 +343,17 @@ def build_printable_html(df: pd.DataFrame) -> str:
 </html>"""
 
 
+def build_excel_bytes(df: pd.DataFrame) -> bytes | None:
+    """Genera un archivo Excel (.xlsx) en memoria a partir de la bitácora."""
+    output = io.BytesIO()
+    try:
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Bitacora_Neubauer")
+        return output.getvalue()
+    except Exception:
+        return None
+
+
 # 4. Barra lateral persistente
 with st.sidebar:
     st.markdown(
@@ -418,7 +430,7 @@ if st.session_state["pagina"] == "Inicio":
             <div class="pro-card">
                 <div class="pro-card-header">Muestras en bitácora</div>
                 <div class="pro-kpi-value">{len(st.session_state['bitacora_campo'])}</div>
-                <div class="pro-kpi-sub">Exportable en CSV y formato imprimible</div>
+                <div class="pro-kpi-sub">Exportable en CSV, Excel y formato imprimible</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -725,26 +737,43 @@ elif st.session_state["pagina"] == "Neubauer":
             df_bitacora = pd.DataFrame(st.session_state["bitacora_campo"])
             st.dataframe(df_bitacora, use_container_width=True, hide_index=True)
 
-            exp1, exp2, exp3 = st.columns([1, 1, 1])
+            exp1, exp2, exp3, exp4 = st.columns([1, 1, 1, 1])
             with exp1:
                 csv_bytes = df_bitacora.to_csv(index=False).encode("utf-8-sig")
                 st.download_button(
-                    label="Exportar bitácora (CSV)",
+                    label="Exportar CSV",
                     data=csv_bytes,
                     file_name=f"bitacora_neubauer_{datetime.date.today()}.csv",
                     mime="text/csv",
                     use_container_width=True,
                 )
             with exp2:
+                excel_bytes = build_excel_bytes(df_bitacora)
+                if excel_bytes is not None:
+                    st.download_button(
+                        label="Exportar Excel (.xlsx)",
+                        data=excel_bytes,
+                        file_name=f"bitacora_neubauer_{datetime.date.today()}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                    )
+                else:
+                    st.button(
+                        "Excel requiere openpyxl",
+                        disabled=True,
+                        use_container_width=True,
+                        help="Agrega 'openpyxl' a tu archivo requirements.txt para habilitar .xlsx",
+                    )
+            with exp3:
                 html_report = build_printable_html(df_bitacora).encode("utf-8")
                 st.download_button(
-                    label="Exportar reporte imprimible / PDF",
+                    label="Reporte imprimible / PDF",
                     data=html_report,
                     file_name=f"reporte_neubauer_{datetime.date.today()}.html",
                     mime="text/html",
                     use_container_width=True,
                 )
-            with exp3:
+            with exp4:
                 if st.button("Vaciar historial", use_container_width=True):
                     st.session_state["bitacora_campo"] = []
                     st.rerun()
@@ -764,4 +793,114 @@ elif st.session_state["pagina"] == "Balance":
         unsafe_allow_html=True,
     )
 
-    col_in, col_out = st
+    col_in, col_out = st.columns([1.1, 1.2], gap="large")
+
+    with col_in:
+        salinidad = st.number_input("Salinidad del agua (g/L o ppt)", min_value=0.0, value=0.0, step=0.5, format="%.1f")
+        volumen_estanque = st.number_input("Volumen del estanque (m³)", min_value=0, value=0, step=50)
+        st.markdown("---")
+        ca_medido = st.number_input("Calcio medido Ca²⁺ (mg/L)", min_value=0.0, value=0.0, step=5.0, format="%.1f")
+        mg_medido = st.number_input("Magnesio medido Mg²⁺ (mg/L)", min_value=0.0, value=0.0, step=10.0, format="%.1f")
+        k_medido = st.number_input("Potasio medido K⁺ (mg/L)", min_value=0.0, value=0.0, step=5.0, format="%.1f")
+
+    ca_ideal = salinidad * (400.0 / 35.0)
+    mg_ideal = salinidad * (1272.0 / 35.0)
+    k_ideal = salinidad * (380.0 / 35.0)
+
+    rel_mg_ca = (mg_medido / ca_medido) if ca_medido > 0 else 0.0
+    rel_ca_k = (ca_medido / k_medido) if k_medido > 0 else 0.0
+
+    deficit_ca = max(0.0, ca_ideal - ca_medido)
+    deficit_mg = max(0.0, mg_ideal - mg_medido)
+    deficit_k = max(0.0, k_ideal - k_medido)
+
+    kg_caso4 = (deficit_ca * volumen_estanque) / (1000.0 * 0.232)
+    kg_mgcl2 = (deficit_mg * volumen_estanque) / (1000.0 * 0.119)
+    kg_kcl = (deficit_k * volumen_estanque) / (1000.0 * 0.524)
+
+    with col_out:
+        r1, r2 = st.columns(2)
+        with r1:
+            st.metric(
+                label="Relación Mg : Ca",
+                value=f"{rel_mg_ca:.2f} : 1",
+                delta="Ideal: 3.10 – 3.40",
+            )
+        with r2:
+            st.metric(
+                label="Relación Ca : K",
+                value=f"{rel_ca_k:.2f} : 1",
+                delta="Ideal: ~1.05 : 1",
+            )
+
+        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+        df_iones = pd.DataFrame(
+            {
+                "Ion": ["Calcio (Ca²⁺)", "Magnesio (Mg²⁺)", "Potasio (K⁺)"],
+                "Medido (mg/L)": [round(ca_medido, 1), round(mg_medido, 1), round(k_medido, 1)],
+                "Ideal salinidad (mg/L)": [round(ca_ideal, 1), round(mg_ideal, 1), round(k_ideal, 1)],
+                "Déficit (mg/L)": [round(deficit_ca, 1), round(deficit_mg, 1), round(deficit_k, 1)],
+            }
+        )
+        st.dataframe(df_iones, use_container_width=True, hide_index=True)
+
+        st.markdown("**Dosificación estimada de sales correctoras**")
+        s1, s2, s3 = st.columns(3)
+        with s1:
+            st.metric("Sulfato de calcio", f"{kg_caso4:,.1f} kg")
+        with s2:
+            st.metric("Cloruro de magnesio", f"{kg_mgcl2:,.1f} kg")
+        with s3:
+            st.metric("Cloruro de potasio", f"{kg_kcl:,.1f} kg")
+
+
+# ----------------------------------------------------------------------
+# PÁGINA 4: PATOLOGÍA Y ALIMENTACIÓN
+# ----------------------------------------------------------------------
+elif st.session_state["pagina"] == "Patologia":
+    st.title("Patología y alimentación")
+    st.markdown(
+        "<p style='color:#a3a9b8; margin-bottom:18px;'>"
+        "Cálculo de biomasa viva, ración por toma y lista de verificación clínico-patológica en fresco."
+        "</p>",
+        unsafe_allow_html=True,
+    )
+
+    tab_rac, tab_pat = st.tabs(["Cálculo de biomasa y ración", "Verificación clínica en fresco"])
+
+    with tab_rac:
+        c_left, c_right = st.columns([1, 1.1], gap="large")
+        with c_left:
+            poblacion = st.number_input("Población estimada (organismos)", min_value=0, value=0, step=5000)
+            peso_prom = st.number_input("Peso promedio actual (g)", min_value=0.0, value=0.0, step=0.25, format="%.2f")
+            tasa_alim = st.number_input("Tasa de alimentación (% biomasa)", min_value=0.0, value=0.0, step=0.1, format="%.1f")
+            tomas_dia = st.number_input("Frecuencia de alimentación (tomas/día)", min_value=1, max_value=12, value=4, step=1)
+
+        biomasa_kg = (poblacion * peso_prom) / 1000.0
+        racion_dia_kg = biomasa_kg * (tasa_alim / 100.0)
+        racion_toma_kg = racion_dia_kg / tomas_dia
+
+        with c_right:
+            st.metric("Biomasa viva total", f"{biomasa_kg:,.2f} kg")
+            st.metric("Ración diaria total", f"{racion_dia_kg:,.2f} kg/día")
+            st.metric(f"Ración por suministro ({tomas_dia} tomas)", f"{racion_toma_kg:,.2f} kg/toma")
+
+    with tab_pat:
+        st.markdown("**Inspección morfológica en fresco**")
+        st.caption("Desmarca los órganos donde observes alteraciones durante el muestreo:")
+
+        chk_hp = st.checkbox("Hepatopáncreas: coloración ámbar normal, túbulos definidos y gotas lipídicas", value=True)
+        chk_br = st.checkbox("Branquias: limpias, sin melanización ni carga excesiva de epibiontes", value=True)
+        chk_in = st.checkbox("Intestino: tracto lleno y continuo, sin fluido amarillento", value=True)
+        chk_cu = st.checkbox("Cutícula y musculatura: exoesqueleto firme y abdomen translúcido", value=True)
+
+        if st.button("Emitir dictamen técnico", type="primary"):
+            if all([chk_hp, chk_br, chk_in, chk_cu]):
+                st.success(
+                    "Dictamen: Organismos sin signos clínicos de alerta. Mantener tabla de alimentación programada."
+                )
+            else:
+                st.error(
+                    "Dictamen: Se detectaron signos clínicos anormales. Reducir ración entre 30% y 50%, "
+                    "revisar parámetros de fondo y remitir muestra fija para diagnóstico."
+                )
